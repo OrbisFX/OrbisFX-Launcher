@@ -1,0 +1,21 @@
+node_modules
+dist
+.DS_Store
+*.log
+*.swp
+*.swo
+*~
+.vscode
+.env.local
+src-tauri/target
+
+# Release artifacts
+release/
+*.msi
+*.nsis
+*.exe
+!src-tauri/target/release/*.exe
+
+# Build cache
+.tauri
+*.cache

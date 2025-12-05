@@ -1,0 +1,102 @@
+/* HyFX Installer Styles - test.html Design */
+
+/* Base Fonts */
+.font-hytale { 
+  font-family: 'Cinzel', serif; 
+}
+
+.font-mono { 
+  font-family: 'JetBrains Mono', monospace; 
+}
+
+.font-body { 
+  font-family: 'Open Sans', sans-serif; 
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { 
+  width: 8px; 
+}
+
+::-webkit-scrollbar-track { 
+  background: #0a0a0c; 
+}
+
+::-webkit-scrollbar-thumb { 
+  background: #2d2d30; 
+  border-radius: 4px; 
+}
+
+::-webkit-scrollbar-thumb:hover { 
+  background: #0092cc; 
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* HyFX Button Styles */
+.btn-hyfx-primary {
+  background: linear-gradient(to bottom, #00b0f4, #0080b0);
+  border: 1px solid #005070;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 0 #003650;
+  transition: all 0.1s;
+  cursor: pointer;
+}
+
+.btn-hyfx-primary:hover:not(:disabled) { 
+  filter: brightness(1.1); 
+  transform: translateY(-1px); 
+}
+
+.btn-hyfx-primary:active:not(:disabled) { 
+  transform: translateY(3px); 
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 0 #003650; 
+}
+
+.btn-hyfx-primary:disabled { 
+  opacity: 0.5; 
+  filter: grayscale(1); 
+  cursor: not-allowed; 
+  box-shadow: none; 
+  transform: translateY(3px); 
+}
+
+.btn-hyfx-secondary {
+  background: linear-gradient(to bottom, #3a3a3a, #2a2a2a);
+  border: 1px solid #1a1a1a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 0 #151515;
+  color: #eeeae3;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.btn-hyfx-secondary:hover:not(:disabled) { 
+  background: linear-gradient(to bottom, #4a4a4a, #3a3a3a);
+  transform: translateY(-1px);
+}
+
+.btn-hyfx-secondary:active:not(:disabled) { 
+  transform: translateY(3px); 
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 0 #151515; 
+}
+
+.btn-hyfx-secondary:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}

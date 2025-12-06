@@ -1,0 +1,41 @@
+# Cargo configuration for faster development builds
+# See: https://v2.tauri.app/start/prerequisites/#rust
+
+# ============== Linker Configuration ==============
+# Use LLD linker on Windows for faster linking (much faster than the default MSVC linker)
+# LLD typically reduces link times by 2-5x
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+# Alternative: Use full LLD path if rust-lld is not in PATH
+# linker = "lld-link.exe"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# Mold linker for Linux (if you ever develop on Linux)
+# Mold is the fastest linker available
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# ============== Codegen Backend ==============
+# Use Cranelift backend for debug builds (faster compilation, slower runtime)
+# This only affects development builds - release builds still use LLVM
+# NOTE: Requires nightly Rust. Uncomment these lines if you're using nightly:
+# [unstable]
+# codegen-backend = true
+
+# ============== Build Optimizations ==============
+# [build]
+# jobs uses all cores by default, no need to specify
+
+# Incremental compilation (default for dev, but explicit is good)
+[profile.dev]
+incremental = true
+
+[profile.release]
+incremental = false
+
+# ============== Environment Variables ==============
+[env]
+# Reduce memory usage during compilation
+CARGO_INCREMENTAL = "1"
+

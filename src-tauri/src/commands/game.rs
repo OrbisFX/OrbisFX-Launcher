@@ -1,4 +1,4 @@
-//! Game-related Tauri commands (validation, launch, ReShade management)
+//! Game-related Tauri commands (validation, launch, GShade management)
 
 use std::fs;
 use std::io::Write;
@@ -7,8 +7,8 @@ use std::process::Command;
 
 use include_dir::{include_dir, Dir};
 
-// Embed the entire RESHADE INSTALL folder into the binary at compile time
-static RESHADE_FILES: Dir = include_dir!("$CARGO_MANIFEST_DIR/../RESHADE INSTALL");
+// Embed the entire GSHADE INSTALL folder into the binary at compile time
+static GSHADE_FILES: Dir = include_dir!("$CARGO_MANIFEST_DIR/../GSHADE INSTALL");
 
 /// Recursively extract embedded directory to filesystem
 fn extract_dir(dir: &Dir, dest: &Path) -> std::io::Result<()> {
@@ -43,13 +43,13 @@ pub fn validate_path(hytale_dir: String) -> serde_json::Value {
         "is_valid": exists,
         "hytale_path": if exists { Some(hytale_dir) } else { None },
         "hytale_version": if exists { Some("unknown") } else { None },
-        "reshade_installed": runtime_installed,
-        "reshade_enabled": runtime_enabled
+        "gshade_installed": runtime_installed,
+        "gshade_enabled": runtime_enabled
     })
 }
 
 #[tauri::command]
-pub fn install_reshade(hytale_dir: String, _preset_name: Option<String>) -> serde_json::Value {
+pub fn install_gshade(hytale_dir: String, _preset_name: Option<String>) -> serde_json::Value {
     use std::io;
 
     let exe_path = Path::new(&hytale_dir).join("Hytale.exe");
@@ -64,14 +64,14 @@ pub fn install_reshade(hytale_dir: String, _preset_name: Option<String>) -> serd
     let result = (|| -> io::Result<()> {
         let target_path = Path::new(&hytale_dir);
 
-        for file in RESHADE_FILES.files() {
+        for file in GSHADE_FILES.files() {
             let file_name = file.path().file_name().unwrap();
             let dest_path = target_path.join(file_name);
             let mut output = fs::File::create(&dest_path)?;
             output.write_all(file.contents())?;
         }
 
-        for subdir in RESHADE_FILES.dirs() {
+        for subdir in GSHADE_FILES.dirs() {
             let subdir_name = subdir.path().file_name().unwrap();
             let subdir_dest = target_path.join(subdir_name);
             extract_dir(subdir, &subdir_dest)?;
@@ -83,7 +83,7 @@ pub fn install_reshade(hytale_dir: String, _preset_name: Option<String>) -> serd
     if result.is_ok() {
         serde_json::json!({
             "success": true,
-            "message": format!("ReShade installed successfully to {}", hytale_dir),
+            "message": format!("GShade installed successfully to {}", hytale_dir),
             "path": hytale_dir
         })
     } else {
@@ -96,7 +96,7 @@ pub fn install_reshade(hytale_dir: String, _preset_name: Option<String>) -> serd
 }
 
 #[tauri::command]
-pub fn uninstall_reshade(hytale_dir: String) -> serde_json::Value {
+pub fn uninstall_gshade(hytale_dir: String) -> serde_json::Value {
     let exe_path = Path::new(&hytale_dir).join("Hytale.exe");
     if !exe_path.exists() {
         return serde_json::json!({
@@ -108,20 +108,28 @@ pub fn uninstall_reshade(hytale_dir: String) -> serde_json::Value {
     let files_to_remove = vec![
         Path::new(&hytale_dir).join("opengl32.dll"),
         Path::new(&hytale_dir).join("opengl32.dll.disabled"),
-        Path::new(&hytale_dir).join("ReShade.ini"),
-        Path::new(&hytale_dir).join("ReShadePreset.ini"),
+        Path::new(&hytale_dir).join("GShade.ini"),
+        Path::new(&hytale_dir).join("GShadePreset.ini"),
     ];
 
     for file in files_to_remove {
         let _ = fs::remove_file(&file);
     }
 
-    let reshade_path = Path::new(&hytale_dir).join("reshade-shaders");
-    let _ = fs::remove_dir_all(&reshade_path);
+    // Remove all GShade directories
+    let dirs_to_remove = vec![
+        Path::new(&hytale_dir).join("gshaders"),
+        Path::new(&hytale_dir).join("gshade-addons"),
+        Path::new(&hytale_dir).join("gshade-presets"),
+    ];
+
+    for dir in dirs_to_remove {
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     serde_json::json!({
         "success": true,
-        "message": format!("ReShade uninstalled successfully from {}", hytale_dir)
+        "message": format!("GShade uninstalled successfully from {}", hytale_dir)
     })
 }
 
@@ -174,7 +182,7 @@ pub fn launch_game(hytale_dir: String) -> serde_json::Value {
 }
 
 #[tauri::command]
-pub fn toggle_reshade(hytale_dir: String, enabled: bool) -> serde_json::Value {
+pub fn toggle_gshade(hytale_dir: String, enabled: bool) -> serde_json::Value {
     let dll_path = Path::new(&hytale_dir).join("opengl32.dll");
     let disabled_path = Path::new(&hytale_dir).join("opengl32.dll.disabled");
 

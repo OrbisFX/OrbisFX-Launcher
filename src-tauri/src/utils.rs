@@ -54,19 +54,19 @@ pub fn chrono_lite_now() -> String {
     format!("{}", duration.as_secs())
 }
 
-// ============== ReShade Config Utils ==============
+// ============== GShade Config Utils ==============
 
-pub fn update_reshade_preset_path(hytale_dir: &str, preset_filename: &str) -> Result<(), String> {
+pub fn update_gshade_preset_path(hytale_dir: &str, preset_filename: &str) -> Result<(), String> {
     use std::path::Path;
-    
-    let reshade_ini_path = Path::new(hytale_dir).join("ReShade.ini");
 
-    if !reshade_ini_path.exists() {
-        return Err("ReShade.ini not found".to_string());
+    let gshade_ini_path = Path::new(hytale_dir).join("GShade.ini");
+
+    if !gshade_ini_path.exists() {
+        return Err("GShade.ini not found".to_string());
     }
 
-    let content = fs::read_to_string(&reshade_ini_path)
-        .map_err(|e| format!("Failed to read ReShade.ini: {}", e))?;
+    let content = fs::read_to_string(&gshade_ini_path)
+        .map_err(|e| format!("Failed to read GShade.ini: {}", e))?;
 
     let new_content: String = content
         .lines()
@@ -80,15 +80,15 @@ pub fn update_reshade_preset_path(hytale_dir: &str, preset_filename: &str) -> Re
         .collect::<Vec<_>>()
         .join("\n");
 
-    fs::write(&reshade_ini_path, new_content)
-        .map_err(|e| format!("Failed to write ReShade.ini: {}", e))?;
+    fs::write(&gshade_ini_path, new_content)
+        .map_err(|e| format!("Failed to write GShade.ini: {}", e))?;
 
     Ok(())
 }
 
 // ============== Hotkey Parsing ==============
 
-pub fn parse_reshade_key(key_value: &str) -> String {
+pub fn parse_gshade_key(key_value: &str) -> String {
     let parts: Vec<&str> = key_value.split(',').collect();
     if parts.is_empty() || parts[0] == "0" {
         return "None".to_string();

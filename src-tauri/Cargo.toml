@@ -1,7 +1,7 @@
 [package]
 name = "orbisfx-launcher"
 version = "1.0.0"
-description = "OrbisFX Launcher - ReShade preset manager and game launcher for Hytale"
+description = "OrbisFX Launcher - GShade preset manager and game launcher for Hytale"
 authors = ["OrbisFX Team"]
 license = "MIT"
 repository = ""
@@ -21,7 +21,7 @@ tauri-build = { version = "2", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"

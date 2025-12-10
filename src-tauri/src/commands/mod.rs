@@ -10,6 +10,7 @@ pub mod presets;
 pub mod settings;
 pub mod updates;
 pub mod hotkeys;
+pub mod screenshots;
 
 // Re-export all commands for easy access
 pub use game::*;
@@ -17,4 +18,5 @@ pub use presets::*;
 pub use settings::*;
 pub use updates::*;
 pub use hotkeys::*;
+pub use screenshots::*;
 

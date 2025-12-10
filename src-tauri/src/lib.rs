@@ -13,11 +13,12 @@ pub mod utils;
 pub mod commands;
 
 // Re-export commands for use in the invoke_handler
-use commands::game::{validate_path, install_reshade, uninstall_reshade, launch_game, toggle_reshade};
+use commands::game::{validate_path, install_gshade, uninstall_gshade, launch_game, toggle_gshade};
 use commands::settings::{save_settings, load_settings};
-use commands::presets::{fetch_presets, download_preset, get_installed_presets, delete_preset, activate_preset, import_local_preset, export_preset, toggle_favorite};
+use commands::presets::{fetch_presets, download_preset, get_installed_presets, delete_preset, activate_preset, import_local_preset, export_preset, toggle_favorite, cache_github_image, clear_image_cache};
 use commands::updates::{check_for_updates, download_update, install_update_and_restart};
-use commands::hotkeys::get_reshade_hotkeys;
+use commands::hotkeys::get_gshade_hotkeys;
+use commands::screenshots::{list_screenshots, toggle_screenshot_favorite, open_screenshots_folder, reveal_screenshot_in_folder, delete_screenshot, get_screenshot_presets};
 
 // ============== App Entry Point ==============
 
@@ -41,12 +42,12 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             validate_path,
-            install_reshade,
-            uninstall_reshade,
+            install_gshade,
+            uninstall_gshade,
             save_settings,
             load_settings,
             launch_game,
-            toggle_reshade,
+            toggle_gshade,
             fetch_presets,
             download_preset,
             get_installed_presets,
@@ -58,7 +59,15 @@ pub fn run() {
             import_local_preset,
             export_preset,
             toggle_favorite,
-            get_reshade_hotkeys
+            cache_github_image,
+            clear_image_cache,
+            get_gshade_hotkeys,
+            list_screenshots,
+            toggle_screenshot_favorite,
+            open_screenshots_folder,
+            reveal_screenshot_in_folder,
+            delete_screenshot,
+            get_screenshot_presets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

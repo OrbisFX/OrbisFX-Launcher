@@ -1,31 +1,242 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=JetBrains+Mono:wght@400;700&family=Open+Sans:wght@400;600;700&display=swap');
+/* Hytale Website Fonts - Lexend for headings, Nunito Sans for body */
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================
-   ORBISFX/HYFX DESIGN SYSTEM
-   Matching the website at orbisfx.co
+   HYTALE DESIGN SYSTEM
+   Matching the official Hytale website aesthetic
    ============================================ */
 
-/* Global styles matching website */
+/* ============================================
+   THEME SYSTEM
+   Supports: dark (default), light, oled
+   ============================================ */
+
+/* Dark Theme (Default - Hytale Style) */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Primary Backgrounds */
+  --hytale-bg-primary: #15243A;
+  --hytale-bg-secondary: #182037;
+  --hytale-bg-tertiary: #161F2A;
+  --hytale-bg-nav: #203658;
+  --hytale-bg-footer: #10161e;
+  --hytale-bg-dark: #121B25;
+  --hytale-bg-card: #1a2535;
+  --hytale-bg-input: #131b26;
+  --hytale-bg-elevated: #243040;
+  --hytale-bg-hover: #2a3a4d;
+
+  /* Borders */
+  --hytale-border-primary: #434134;
+  --hytale-border-secondary: #443e30;
+  --hytale-border-light: #47516b;
+  --hytale-border-nav: #182438;
+  --hytale-border-card: #2a3a4d;
+  --hytale-border-hover: #3a4a5d;
+
+  /* Text Colors */
+  --hytale-text-primary: #ffffff;
+  --hytale-text-secondary: #b7cedd;
+  --hytale-text-muted: #a5b9c6;
+  --hytale-text-dim: #8b9db0;
+  --hytale-text-dimmer: #6b7a8a;
+  --hytale-text-faint: #4a5a6a;
+
+  /* Accent Colors */
+  --hytale-accent-blue: #598ac3;
+  --hytale-accent-blue-hover: #4a7ab3;
+  --hytale-accent-link: #A5C0E8;
+  --hytale-accent-hover: #7db9e5;
+
+  /* Button Colors */
+  --hytale-btn-primary-start: #465da9;
+  --hytale-btn-primary-end: #4578aa;
+  --hytale-btn-primary-border: #598ac3;
+  --hytale-btn-secondary-bg: #243040;
+  --hytale-btn-secondary-border: #47516b;
+  --hytale-btn-destructive: #c3194c;
+  --hytale-btn-destructive-border: #df4179;
+
+  /* Status Colors */
+  --hytale-success: #22c55e;
+  --hytale-success-dim: rgba(34, 197, 94, 0.4);
+  --hytale-warning: #fcd34d;
+  --hytale-warning-amber: #eab308;
+  --hytale-error: #ef4444;
+  --hytale-info: #3b82f6;
+  --hytale-favorite: #f43f5e;
+
+  /* Overlay/Shadow */
+  --hytale-overlay: rgba(0, 0, 0, 0.9);
+  --hytale-shadow: rgba(0, 0, 0, 0.5);
+  --hytale-glow-blue: rgba(89, 138, 195, 0.3);
+  --hytale-glow-success: rgba(74, 222, 128, 0.5);
+
+  /* Scrollbar */
+  --scrollbar-track: #121B25;
+  --scrollbar-thumb: #47516b;
+  --scrollbar-thumb-hover: #598ac3;
+}
+
+/* OLED Theme (True Black) */
+[data-theme="oled"] {
+  color-scheme: dark;
+
+  /* Primary Backgrounds - True blacks */
+  --hytale-bg-primary: #000000;
+  --hytale-bg-secondary: #0a0a0a;
+  --hytale-bg-tertiary: #050505;
+  --hytale-bg-nav: #0d1520;
+  --hytale-bg-footer: #000000;
+  --hytale-bg-dark: #000000;
+  --hytale-bg-card: #0a0f15;
+  --hytale-bg-input: #050508;
+  --hytale-bg-elevated: #121820;
+  --hytale-bg-hover: #1a2530;
+
+  /* Borders - Darker to match */
+  --hytale-border-primary: #1a1a1a;
+  --hytale-border-secondary: #252525;
+  --hytale-border-light: #333344;
+  --hytale-border-nav: #0a1020;
+  --hytale-border-card: #1a2535;
+  --hytale-border-hover: #2a3545;
+
+  /* Text Colors - Slightly dimmer to reduce contrast */
+  --hytale-text-primary: #f0f0f0;
+  --hytale-text-secondary: #a5b9c6;
+  --hytale-text-muted: #8b9db0;
+  --hytale-text-dim: #6b7a8a;
+  --hytale-text-dimmer: #555566;
+  --hytale-text-faint: #3a3a4a;
+
+  /* Accent Colors */
+  --hytale-accent-blue: #598ac3;
+  --hytale-accent-blue-hover: #4a7ab3;
+
+  /* Button Colors */
+  --hytale-btn-secondary-bg: #121820;
+
+  /* Status Colors */
+  --hytale-success: #22c55e;
+  --hytale-success-dim: rgba(34, 197, 94, 0.4);
+  --hytale-warning: #fcd34d;
+  --hytale-warning-amber: #eab308;
+  --hytale-error: #ef4444;
+  --hytale-favorite: #f43f5e;
+
+  /* Overlay/Shadow */
+  --hytale-overlay: rgba(0, 0, 0, 0.95);
+  --hytale-shadow: rgba(0, 0, 0, 0.7);
+  --hytale-glow-blue: rgba(89, 138, 195, 0.2);
+  --hytale-glow-success: rgba(74, 222, 128, 0.4);
+
+  /* Scrollbar */
+  --scrollbar-track: #000000;
+  --scrollbar-thumb: #333344;
+  --scrollbar-thumb-hover: #598ac3;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Primary Backgrounds - Light blues and whites */
+  --hytale-bg-primary: #f0f4f8;
+  --hytale-bg-secondary: #e8eef4;
+  --hytale-bg-tertiary: #ffffff;
+  --hytale-bg-nav: #dce5ef;
+  --hytale-bg-footer: #d5dfe8;
+  --hytale-bg-dark: #e0e8f0;
+  --hytale-bg-card: #ffffff;
+  --hytale-bg-input: #f8fafc;
+  --hytale-bg-elevated: #e0e8f0;
+  --hytale-bg-hover: #d8e2ec;
+
+  /* Borders - Light gray/blue */
+  --hytale-border-primary: #c5d0dc;
+  --hytale-border-secondary: #b8c5d3;
+  --hytale-border-light: #9bafc4;
+  --hytale-border-nav: #c8d5e2;
+  --hytale-border-card: #d0dce8;
+  --hytale-border-hover: #b0c0d0;
+
+  /* Text Colors - Dark for contrast */
+  --hytale-text-primary: #1a2535;
+  --hytale-text-secondary: #2c3e50;
+  --hytale-text-muted: #4a5a6a;
+  --hytale-text-dim: #6b7a8a;
+  --hytale-text-dimmer: #8b9aa8;
+  --hytale-text-faint: #a5b0bb;
+
+  /* Accent Colors - Slightly deeper for visibility */
+  --hytale-accent-blue: #4a7ab3;
+  --hytale-accent-blue-hover: #3a6a9c;
+  --hytale-accent-link: #3a6a9c;
+  --hytale-accent-hover: #2a5a8c;
+
+  /* Button Colors - Adjusted for light mode */
+  --hytale-btn-primary-start: #4a6ca8;
+  --hytale-btn-primary-end: #3a5c98;
+  --hytale-btn-primary-border: #4a7ab3;
+  --hytale-btn-secondary-bg: #e0e8f0;
+  --hytale-btn-secondary-border: #b8c5d3;
+  --hytale-btn-destructive: #dc2626;
+  --hytale-btn-destructive-border: #ef4444;
+
+  /* Status Colors - Same, they work on light */
+  --hytale-success: #16a34a;
+  --hytale-success-dim: rgba(22, 163, 74, 0.3);
+  --hytale-warning: #ca8a04;
+  --hytale-warning-amber: #b77a00;
+  --hytale-error: #dc2626;
+  --hytale-info: #2563eb;
+  --hytale-favorite: #e11d48;
+
+  /* Overlay/Shadow */
+  --hytale-overlay: rgba(0, 0, 0, 0.7);
+  --hytale-shadow: rgba(0, 0, 0, 0.15);
+  --hytale-glow-blue: rgba(74, 122, 179, 0.2);
+  --hytale-glow-success: rgba(22, 163, 74, 0.3);
+
+  /* Scrollbar */
+  --scrollbar-track: #e8eef4;
+  --scrollbar-thumb: #b8c5d3;
+  --scrollbar-thumb-hover: #4a7ab3;
+}
+
+/* Global styles matching Hytale website */
+html {
+  overflow: hidden;
+}
+
 body {
-  @apply bg-[#0a0a0c] text-[#eeeae3] h-screen overflow-hidden select-none;
-  font-family: 'Open Sans', sans-serif;
+  background-color: var(--hytale-bg-primary);
+  background-image: linear-gradient(to bottom, var(--hytale-bg-primary), var(--hytale-bg-dark));
+  color: var(--hytale-text-secondary);
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 1em;
+  font-weight: 400;
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-html {
-  overflow: hidden;
 }
 
 #root {
@@ -137,195 +348,259 @@ html {
 .p5 { width: 2px; height: 2px; animation: float-3 4s infinite ease-in-out; animation-delay: 1.2s; }
 
 /* ============================================
-   HYFX BUTTON STYLES (exact website match)
+   HYTALE BUTTON STYLES (matching official website)
    ============================================ */
 
-/* Primary Button - Cyan gradient with 3D effect */
+/* Base button styles shared across all button types */
+.btn-hyfx-primary,
+.btn-hyfx-secondary,
+.btn-hyfx-tertiary,
+.btn-hyfx-danger {
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  color: var(--hytale-text-primary);
+  box-sizing: border-box;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-hyfx-primary:disabled,
+.btn-hyfx-secondary:disabled,
+.btn-hyfx-tertiary:disabled,
+.btn-hyfx-danger:disabled {
+  cursor: not-allowed;
+  background: #39424d !important;
+  border-color: #464e58 !important;
+  opacity: 0.5;
+}
+
+/* Primary Button - Blue gradient with rune pattern (Hytale style) */
 .btn-hyfx-primary {
-  @apply text-white font-bold uppercase tracking-widest text-sm transition-all duration-100 ease-in-out;
-  font-family: 'Cinzel', serif;
-  background: linear-gradient(to bottom, #00b0f4, #0080b0);
-  border: 2px solid #005070;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 5px 0 #003650;
+  --border-color: var(--hytale-btn-primary-border);
+  border: 2px solid var(--border-color);
+  background-color: transparent;
+  background-image: linear-gradient(90deg, var(--hytale-btn-primary-start), var(--hytale-btn-primary-end));
+  background-size: 100%;
 }
 
 .btn-hyfx-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background-color: #20578e;
+  background-image: none;
 }
 
 .btn-hyfx-primary:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 #003650;
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background-color: #2a74bd;
+  background-image: none;
 }
 
-.btn-hyfx-primary:disabled {
-  opacity: 0.5;
-  filter: grayscale(1);
-  cursor: not-allowed;
-  transform: none;
+.btn-hyfx-primary:focus-visible {
+  outline: 2px solid #7ba9d9;
+  outline-offset: 2px;
 }
 
-/* Secondary Button - Dark gray with 3D effect */
+/* Secondary Button - Dark blue background (Hytale style) */
 .btn-hyfx-secondary {
-  @apply text-[#eeeae3] font-semibold text-xs uppercase tracking-wider transition-all duration-100;
-  font-family: 'Cinzel', serif;
-  background: linear-gradient(to bottom, #5c5c5c, #3a3a3a);
-  border: 2px solid #2a2a2a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 5px 0 #151515;
-  cursor: pointer;
+  --border-color: #576c95;
+  background: var(--hytale-btn-secondary-bg);
+  border: 2px solid var(--hytale-btn-secondary-border);
 }
 
 .btn-hyfx-secondary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  border-color: var(--border-color);
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background: #18283c;
 }
 
 .btn-hyfx-secondary:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #151515;
+  border-color: var(--border-color);
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background: #253f60;
 }
 
-.btn-hyfx-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-hyfx-secondary:focus-visible {
+  outline: 2px solid #7ba9d9;
+  outline-offset: 2px;
 }
 
-/* Tertiary Button - Outline style for less prominent actions */
+/* Tertiary Button - Outline style (Hytale style) */
 .btn-hyfx-tertiary {
-  @apply text-[#9ca3af] text-xs uppercase tracking-wider transition-all duration-200;
-  font-family: 'Cinzel', serif;
+  --border-color: var(--hytale-btn-secondary-border);
+  border: 2px solid var(--border-color);
+  box-shadow: none;
   background: transparent;
-  border: 1px solid #2d2d30;
+  color: var(--hytale-text-muted);
 }
 
 .btn-hyfx-tertiary:hover:not(:disabled) {
-  border-color: #0092cc;
-  color: #0092cc;
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  color: var(--hytale-text-primary);
 }
 
-/* Danger Button - Red variant */
+.btn-hyfx-tertiary:active:not(:disabled) {
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background: rgba(78, 89, 119, 0.3);
+}
+
+.btn-hyfx-tertiary:focus-visible {
+  outline: 2px solid #7ba9d9;
+  outline-offset: 2px;
+}
+
+/* Danger/Destructive Button - Red (Hytale style) */
 .btn-hyfx-danger {
-  @apply text-white font-bold uppercase tracking-widest text-sm transition-all duration-100 ease-in-out;
-  font-family: 'Cinzel', serif;
-  background: linear-gradient(to bottom, #dc2626, #991b1b);
-  border: 2px solid #7f1d1d;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 5px 0 #450a0a;
+  --border-color: #ff2668;
+  box-shadow: none;
+  background: var(--hytale-btn-destructive);
+  border: 2px solid var(--hytale-btn-destructive-border);
 }
 
 .btn-hyfx-danger:hover:not(:disabled) {
-  filter: brightness(1.1);
+  border-color: var(--border-color);
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background: #a80b3a;
 }
 
 .btn-hyfx-danger:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 0 #450a0a;
+  border-color: var(--border-color);
+  box-shadow: 0 0 0 2px var(--border-color) inset;
+  background: #d5134d;
 }
 
-/* Font utility classes */
+.btn-hyfx-danger:focus-visible {
+  outline: 2px solid #ff7fa8;
+  outline-offset: 2px;
+}
+
+/* Font utility classes - Hytale typography */
 .font-hytale {
-  font-family: 'Cinzel', serif;
+  font-family: 'Lexend', sans-serif;
 }
 
 .font-body {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Nunito Sans', sans-serif;
 }
 
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Theme aware */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0c;
+  background: var(--scrollbar-track);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2d2d30;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3d3d40;
+  background: var(--scrollbar-thumb-hover);
 }
 
 ::-webkit-scrollbar-corner {
-  background: #0a0a0c;
+  background: var(--scrollbar-track);
 }
 
-/* Focus styles for accessibility */
+/* Focus styles for accessibility - Hytale blue */
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
-  outline: 2px solid #0092cc;
+  outline: 2px solid var(--hytale-accent-blue);
   outline-offset: 2px;
 }
 
 /* ============================================
-   CARD STYLES (from website)
+   CARD STYLES (Hytale website style)
    ============================================ */
 
-/* Base card - matches website panel styling */
+/* Base card - matches Hytale panel styling */
 .card-hyfx {
-  @apply bg-[#141417] border-2 border-[#2d2d30] rounded-sm transition-all duration-200;
+  background: var(--hytale-bg-tertiary);
+  border: 2px solid var(--hytale-border-primary);
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
 }
 
 .card-hyfx:hover {
-  @apply border-[#4a4a50] bg-[#1a1a1e];
+  border-color: var(--hytale-border-light);
+  background: var(--hytale-bg-secondary);
 }
 
 .card-hyfx.active {
-  @apply border-[#0092cc] bg-[#1a1a1e];
-  box-shadow: 0 0 15px rgba(0, 146, 204, 0.2);
+  border-color: var(--hytale-accent-blue);
+  background: var(--hytale-bg-secondary);
+  box-shadow: 0 0 15px rgba(89, 138, 195, 0.2);
 }
 
-/* Left-accent card - like reference image installed presets */
+/* Modal card - matches Hytale modal styling with gradient */
+.card-modal {
+  background: linear-gradient(to bottom, #1a2d4a, #0f1c30);
+  border-radius: 6px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8), inset 0 0 0 2px #4e5765;
+}
+
+/* Left-accent card - for installed presets */
 .card-accent-left {
-  @apply bg-[#0a0a0c] border-2 border-[#2d2d30] rounded-sm transition-all duration-200;
+  background: var(--hytale-bg-dark);
+  border: 2px solid var(--hytale-border-primary);
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
   border-left-width: 3px;
 }
 
 .card-accent-left:hover {
-  @apply border-[#4a4a50] bg-[#0f0f12];
+  border-color: var(--hytale-border-light);
+  background: var(--hytale-bg-tertiary);
 }
 
 .card-accent-left.active {
-  @apply border-green-500/50 bg-[#0a0a0c];
-  border-left-color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.5);
+  background: var(--hytale-bg-dark);
+  border-left-color: var(--hytale-success);
   box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
 }
 
 .card-accent-left.inactive {
-  border-left-color: #2d2d30;
+  border-left-color: var(--hytale-border-primary);
 }
 
 .card-accent-left.inactive:hover {
-  border-left-color: #4a4a50;
+  border-left-color: var(--hytale-border-light);
 }
 
 /* Card hover effects */
 .card-hover {
-  @apply transition-all duration-200;
+  transition: all 0.2s ease-in-out;
 }
 
 .card-hover:hover {
-  @apply border-[#0092cc]/30 shadow-[0_0_20px_rgba(0,146,204,0.1)];
+  border-color: rgba(89, 138, 195, 0.3);
+  box-shadow: 0 0 20px rgba(89, 138, 195, 0.1);
 }
 
-/* Glass effect */
+/* Glass effect - Hytale style */
 .glass {
-  background: rgba(20, 20, 23, 0.8);
+  background: rgba(21, 36, 58, 0.8);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 /* ============================================
-   FEATURE LIST WITH CYAN SQUARES (from website)
+   FEATURE LIST WITH BLUE SQUARES (Hytale style)
    ============================================ */
 .feature-list {
   list-style: none;
@@ -334,34 +609,49 @@ a:focus-visible {
 }
 
 .feature-list li {
-  @apply flex items-center gap-3 text-[#9ca3af] text-sm py-1.5;
-  font-family: 'Open Sans', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--hytale-text-muted);
+  font-size: 0.875rem;
+  padding: 6px 0;
+  font-family: 'Nunito Sans', sans-serif;
 }
 
 .feature-list li::before {
   content: '';
-  @apply w-2 h-2 bg-[#0092cc] flex-shrink-0;
+  width: 8px;
+  height: 8px;
+  background: var(--hytale-accent-blue);
+  flex-shrink: 0;
 }
 
 /* ============================================
-   INPUT STYLES (matching website aesthetic)
+   INPUT STYLES (Hytale website style)
    ============================================ */
 .input-hyfx {
-  @apply bg-[#0a0a0c] border-2 border-[#2d2d30] text-[#eeeae3] px-4 py-3 rounded-sm outline-none transition-all duration-200;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(0, 0, 0, 0.8);
+  color: var(--hytale-text-primary);
+  padding: 14px 12px;
+  border-radius: 6px;
+  outline: none;
+  transition: all 0.2s ease-in-out;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .input-hyfx::placeholder {
-  @apply text-[#4b5563];
+  color: var(--hytale-text-dim);
 }
 
 .input-hyfx:focus {
-  @apply border-[#0092cc];
-  box-shadow: 0 0 10px rgba(0, 146, 204, 0.2);
+  border-color: var(--hytale-border-light);
+  outline: 2px solid var(--hytale-border-light);
+  outline-offset: 0;
 }
 
 /* ============================================
-   TECH UI DECORATIONS (from website)
+   TECH UI DECORATIONS (Hytale style)
    ============================================ */
 
 /* Corner brackets - used on image frames */
@@ -369,7 +659,7 @@ a:focus-visible {
   position: absolute;
   width: 20px;
   height: 20px;
-  border-color: #0092cc;
+  border-color: var(--hytale-accent-blue);
   pointer-events: none;
 }
 
@@ -421,14 +711,14 @@ a:focus-visible {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 146, 204, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 146, 204, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(89, 138, 195, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(89, 138, 195, 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
   pointer-events: none;
 }
 
 /* ============================================
-   STATUS & BADGE STYLES
+   STATUS & BADGE STYLES (Hytale style)
    ============================================ */
 
 /* Status indicator pulse */
@@ -441,38 +731,57 @@ a:focus-visible {
   50% { opacity: 0.5; }
 }
 
-/* Badge styles matching website */
+/* Badge styles matching Hytale website */
 .badge-hyfx {
-  @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs uppercase tracking-wider rounded-sm font-semibold;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  font-weight: 600;
+  font-family: 'Nunito Sans', sans-serif;
 }
 
 .badge-hyfx.primary {
-  @apply bg-[#0092cc]/20 text-[#0092cc] border border-[#0092cc]/30;
+  background: rgba(89, 138, 195, 0.2);
+  color: var(--hytale-accent-blue);
+  border: 1px solid rgba(89, 138, 195, 0.3);
 }
 
 .badge-hyfx.success {
-  @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--hytale-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .badge-hyfx.warning {
-  @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--hytale-warning);
+  border: 1px solid rgba(234, 179, 8, 0.3);
 }
 
 .badge-hyfx.danger {
-  @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--hytale-error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .badge-hyfx.gold {
-  @apply bg-[#fcd34d]/20 text-[#fcd34d] border border-[#fcd34d]/30;
+  background: rgba(252, 211, 77, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(252, 211, 77, 0.3);
 }
 
 /* ============================================
-   TYPOGRAPHY ENHANCEMENTS
+   TYPOGRAPHY ENHANCEMENTS (Hytale style)
    ============================================ */
 
-/* Gradient text like website headlines */
+/* Gradient text like Hytale headlines */
 .text-gradient {
-  background: linear-gradient(to right, #eeeae3, #9ca3af);
+  background: linear-gradient(to bottom, #f5fbff, #bfe6ff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -484,12 +793,215 @@ a:focus-visible {
   text-shadow: 0 0 10px rgba(252, 211, 77, 0.3);
 }
 
-/* Cyan accent text */
-.text-cyan {
-  color: #0092cc;
+/* Blue accent text - Hytale style */
+.text-accent {
+  color: var(--hytale-accent-link);
+}
+
+.text-accent:hover {
+  color: var(--hytale-accent-hover);
 }
 
 /* Monospace code style */
 .code {
-  @apply font-mono text-[#0092cc] bg-[#0092cc]/10 px-1.5 py-0.5 rounded-sm text-sm;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--hytale-accent-blue);
+  background: rgba(89, 138, 195, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+/* Hytale heading styles */
+h1, h2, h3, .heading {
+  text-transform: uppercase;
+  font-family: 'Lexend', sans-serif;
+  font-weight: 700;
+  color: transparent;
+  background: linear-gradient(to bottom, #f5fbff, #bfe6ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Link styles - Hytale */
+a {
+  color: var(--hytale-accent-link);
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease-in-out;
+}
+
+a:hover {
+  color: var(--hytale-accent-hover);
+  text-decoration: underline;
+}
+
+/* ============================================
+   SIDEBAR NAVIGATION (Hytale style)
+   ============================================ */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 4px;
+  color: var(--hytale-text-muted);
+  font-family: 'Nunito Sans', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.nav-item:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--hytale-text-primary);
+}
+
+.nav-item.active {
+  background: var(--hytale-bg-nav);
+  border-color: var(--hytale-border-nav);
+  color: var(--hytale-text-primary);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   GALLERY ANIMATIONS & EFFECTS
+   ============================================ */
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Scale in animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+/* Radial vignette for fullscreen view */
+.bg-radial-vignette {
+  background: radial-gradient(ellipse at center, transparent 0%, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+/* Subtle pulse for favorite badges */
+@keyframes subtlePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtlePulse 2s ease-in-out infinite;
+}
+
+/* Staggered fade-in for lists */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+/* Stagger delays for grid items */
+.stagger-1 { animation-delay: 0.05s; opacity: 0; }
+.stagger-2 { animation-delay: 0.1s; opacity: 0; }
+.stagger-3 { animation-delay: 0.15s; opacity: 0; }
+.stagger-4 { animation-delay: 0.2s; opacity: 0; }
+.stagger-5 { animation-delay: 0.25s; opacity: 0; }
+.stagger-6 { animation-delay: 0.3s; opacity: 0; }
+
+/* Slide in from left for sidebar items */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out forwards;
+}
+
+/* Gentle bounce for interactive elements */
+@keyframes gentleBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.hover-bounce:hover {
+  animation: gentleBounce 0.4s ease-in-out;
+}
+
+/* Smooth expand animation for modals/panels */
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-expand-in {
+  animation: expandIn 0.25s ease-out forwards;
+}
+
+/* ============================================
+   THEME-AWARE UTILITY CLASSES
+   ============================================ */
+
+/* Text colors that respond to theme */
+.text-hytale-accent {
+  color: var(--hytale-accent-blue);
+}
+
+.text-discord {
+  color: #5865F2;
+}
+
+/* Progress bar gradient */
+.progress-bar-gradient {
+  background: linear-gradient(to right, var(--hytale-btn-primary-start), var(--hytale-accent-blue));
+  box-shadow: 0 0 10px var(--hytale-glow-blue);
 }

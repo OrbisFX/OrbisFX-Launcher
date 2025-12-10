@@ -1,7 +1,7 @@
 {
   "name": "orbisfx-launcher",
   "version": "1.0.0",
-  "description": "OrbisFX Launcher - ReShade preset manager and game launcher for Hytale",
+  "description": "OrbisFX Launcher - GShade preset manager and game launcher for Hytale",
   "main": "public/electron.js",
   "homepage": "./",
   "scripts": {

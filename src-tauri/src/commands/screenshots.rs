@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::models::Screenshot;
-use crate::utils::{get_config_dir};
+use crate::utils::{get_config_dir, validate_path_within_dir};
 
 // ============== Screenshot Favorites Storage ==============
 
@@ -194,9 +194,20 @@ pub fn open_screenshots_folder(hytale_path: String) -> serde_json::Value {
 }
 
 /// Open a specific screenshot's containing folder and select it
+/// Security: Validates path is within a safe directory to prevent path traversal
 #[tauri::command]
-pub fn reveal_screenshot_in_folder(screenshot_path: String) -> serde_json::Value {
+pub fn reveal_screenshot_in_folder(screenshot_path: String, hytale_path: String) -> serde_json::Value {
     let path = Path::new(&screenshot_path);
+    let screenshots_dir = Path::new(&hytale_path).join("screenshots");
+
+    // Validate path is within screenshots directory (prevent path traversal)
+    if let Err(e) = validate_path_within_dir(path, &screenshots_dir) {
+        log::warn!("[Security] Path traversal attempt in reveal_screenshot: {}", e);
+        return serde_json::json!({
+            "success": false,
+            "error": "Invalid screenshot path"
+        });
+    }
 
     if !path.exists() {
         return serde_json::json!({
@@ -235,9 +246,20 @@ pub fn reveal_screenshot_in_folder(screenshot_path: String) -> serde_json::Value
 }
 
 /// Delete a screenshot
+/// Security: Validates path is within screenshots directory to prevent arbitrary file deletion
 #[tauri::command]
-pub fn delete_screenshot(screenshot_path: String) -> serde_json::Value {
+pub fn delete_screenshot(screenshot_path: String, hytale_path: String) -> serde_json::Value {
     let path = Path::new(&screenshot_path);
+    let screenshots_dir = Path::new(&hytale_path).join("screenshots");
+
+    // Validate path is within screenshots directory (prevent path traversal)
+    if let Err(e) = validate_path_within_dir(path, &screenshots_dir) {
+        log::warn!("[Security] Path traversal attempt in delete_screenshot: {}", e);
+        return serde_json::json!({
+            "success": false,
+            "error": "Invalid screenshot path"
+        });
+    }
 
     if !path.exists() {
         return serde_json::json!({

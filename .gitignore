@@ -7,6 +7,8 @@ dist
 *~
 .vscode
 .env.local
+.env
+src-tauri/.env
 src-tauri/target
 
 # Release artifacts

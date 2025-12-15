@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import {
-  FolderOpen, Download, ShieldCheck, CheckCircle, Activity, Settings,
+  FolderOpen, Download, CheckCircle, Activity, Settings,
   AlertTriangle, Trash2, Minus, X, Play, Home, Palette, RefreshCw,
-  ExternalLink, Search, Filter, ChevronRight, ChevronDown, Power, Gamepad2,
+  ExternalLink, Search, Filter, ChevronRight, ChevronDown, Power,
   Star, Upload, Share2, Keyboard, ChevronLeft, Eye, HelpCircle,
   Rocket, MessageCircle, Sparkles, SplitSquareHorizontal, Image,
   Camera, Heart, Copy, Maximize2, Grid, FolderOpen as FolderOpenIcon,
-  Clock, HardDrive, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, ArrowDown01, ArrowUp01,
-  Sun, Moon, Monitor, LayoutGrid, LayoutList, GalleryHorizontal
+  Clock, HardDrive, ArrowUpDown, Info, User, LogOut,
+  Sun, Moon, Monitor, LayoutGrid, LayoutList, GalleryHorizontal, Loader2, Shield,
+  TrendingUp
 } from 'lucide-react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -19,8 +20,34 @@ import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import './App.css';
 import { ImageComparisonSlider } from './components/ImageComparisonSlider';
 import { CachedImage } from './components/CachedImage';
+import { StarRating, UserRating } from './components/StarRating';
+import { SubmissionWizard } from './components/SubmissionWizard';
+import { ModerationPanel } from './components/ModerationPanel';
+import { UserProfile } from './components/UserProfile';
 
 const appWindow = getCurrentWindow();
+
+// ============== Helper Functions ==============
+
+// Capitalize first letter of each word (title case)
+const toTitleCase = (str: string) => {
+  return str.replace(/\b\w/g, char => char.toUpperCase());
+};
+
+// Compare semantic versions (returns true if v2 > v1)
+const isNewerVersion = (v1: string, v2: string): boolean => {
+  const normalize = (v: string) => v.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const parts1 = normalize(v1);
+  const parts2 = normalize(v2);
+  const maxLen = Math.max(parts1.length, parts2.length);
+  for (let i = 0; i < maxLen; i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p2 > p1) return true;
+    if (p2 < p1) return false;
+  }
+  return false;
+};
 
 // ============== Type Definitions ==============
 
@@ -144,6 +171,9 @@ interface Preset {
   toggled_image?: string;
 }
 
+// Source type for installed presets
+type PresetSource = 'official' | 'community' | 'local';
+
 interface InstalledPreset {
   id: string;
   name: string;
@@ -154,6 +184,33 @@ interface InstalledPreset {
   is_favorite: boolean;
   is_local: boolean;
   source_path?: string;
+  source?: PresetSource;
+  source_id?: string;
+}
+
+interface CommunityPreset {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  long_description?: string;
+  category: string;
+  version: string;
+  author_name: string;
+  author_discord_id: string;
+  author_avatar?: string;
+  thumbnail_url?: string;
+  preset_file_url: string;
+  download_count: number;
+  status: string;
+  created_at: string;
+  images: {
+    id: string;
+    image_type: string;
+    pair_index?: number;
+    full_image_url: string;
+    thumbnail_url?: string;
+  }[];
 }
 
 interface GShadeHotkeys {
@@ -179,7 +236,28 @@ interface Screenshot {
   file_size: number;
 }
 
-type Page = 'home' | 'presets' | 'settings' | 'setup' | 'gallery';
+// Rating types
+interface PresetRatingSummary {
+  preset_id: string;
+  average_rating: number;
+  total_ratings: number;
+}
+
+type PresetSortOption = 'name-asc' | 'name-desc' | 'rating-desc' | 'rating-asc' | 'most-rated' | 'category';
+
+type Page = 'home' | 'presets' | 'settings' | 'setup' | 'gallery' | 'moderation' | 'profile';
+
+// Discord user info from auth
+interface CurrentUserInfo {
+  id: string;
+  username: string;
+  discriminator: string;
+  avatar_url: string;
+  banner_url?: string;
+  banner_color?: string;
+  accent_color?: number;
+  display_name: string;
+}
 
 // ============== Helper Components ==============
 
@@ -208,6 +286,60 @@ const TerminalLog: React.FC<{ logs: string[] }> = ({ logs }) => {
   );
 };
 
+// Collapsible settings section component - Enhanced styling
+const SettingsSection: React.FC<{
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  badge?: React.ReactNode;
+  accentColor?: string;
+}> = ({ title, description, icon, expanded, onToggle, children, badge, accentColor }) => (
+  <div className={`bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-xl overflow-hidden transition-all duration-200 ${expanded ? 'shadow-lg' : 'hover:border-[var(--hytale-border-hover)]'}`}>
+    {/* Accent bar when expanded */}
+    {expanded && (
+      <div className={`h-0.5 ${accentColor || 'bg-gradient-to-r from-[var(--hytale-accent-blue)] to-purple-500'}`}></div>
+    )}
+    <button
+      onClick={onToggle}
+      className="w-full p-5 flex items-center gap-4 hover:bg-[var(--hytale-bg-elevated)]/50 transition-colors text-left group"
+    >
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+        expanded
+          ? 'bg-[var(--hytale-accent-blue)]/15 ring-1 ring-[var(--hytale-accent-blue)]/30'
+          : 'bg-[var(--hytale-bg-elevated)] group-hover:bg-[var(--hytale-bg-hover)]'
+      }`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-base tracking-wide">{title}</span>
+          {badge}
+        </div>
+        <p className="text-[var(--hytale-text-muted)] text-sm font-body mt-0.5">{description}</p>
+      </div>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+        expanded ? 'bg-[var(--hytale-accent-blue)]/20' : 'bg-[var(--hytale-bg-elevated)] group-hover:bg-[var(--hytale-bg-hover)]'
+      }`}>
+        <ChevronDown
+          size={18}
+          className={`transition-transform duration-300 ${expanded ? 'rotate-180 text-[var(--hytale-accent-blue)]' : 'text-[var(--hytale-text-dim)]'}`}
+        />
+      </div>
+    </button>
+    <div className={`grid transition-all duration-300 ease-in-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+      <div className="overflow-hidden">
+        <div className="px-6 pb-6 pt-2 bg-[var(--hytale-bg-elevated)]/30 border-t border-[var(--hytale-border-card)]">
+          {children}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   // Navigation state - start on 'setup' if first launch
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -234,9 +366,18 @@ const App: React.FC = () => {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [installedPresets, setInstalledPresets] = useState<InstalledPreset[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [libraryFilter, setLibraryFilter] = useState<'all' | 'official' | 'community' | 'local'>('all');
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [presetTab, setPresetTab] = useState<'library' | 'public'>('library');
+  const [presetTab, setPresetTab] = useState<'library' | 'public' | 'community'>('library');
+  const [showSubmissionWizard, setShowSubmissionWizard] = useState(false);
+  const [communityPresets, setCommunityPresets] = useState<CommunityPreset[]>([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communitySearch, setCommunitySearch] = useState('');
+  const [communityCategory, setCommunityCategory] = useState<string>('all');
+  const [communitySort, setCommunitySort] = useState<PresetSortOption>('name-asc');
+  const [trendingPresets, setTrendingPresets] = useState<CommunityPreset[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
 
   // Installation state
   const [isInstalling, setIsInstalling] = useState(false);
@@ -264,6 +405,11 @@ const App: React.FC = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showComparisonView, setShowComparisonView] = useState(false);
 
+  // Community preset detail modal state
+  const [selectedCommunityPreset, setSelectedCommunityPreset] = useState<CommunityPreset | null>(null);
+  const [communityImageIndex, setCommunityImageIndex] = useState(0);
+  const [communityShowComparison, setCommunityShowComparison] = useState(false);
+
   // Screenshot gallery state
   const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
   const [screenshotsLoading, setScreenshotsLoading] = useState(false);
@@ -273,6 +419,42 @@ const App: React.FC = () => {
   const [fullscreenScreenshot, setFullscreenScreenshot] = useState<Screenshot | null>(null);
   const [screenshotSearchQuery, setScreenshotSearchQuery] = useState('');
   const [screenshotSort, setScreenshotSort] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc' | 'preset-asc' | 'preset-desc' | 'favorites'>('date-desc');
+
+  // Rating state
+  const [presetRatings, setPresetRatings] = useState<Record<string, PresetRatingSummary>>({});
+  const [myRatings, setMyRatings] = useState<Record<string, number>>({});
+  const [presetSort, setPresetSort] = useState<PresetSortOption>('name-asc');
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+
+  // Rating modal state - supports both Preset and CommunityPreset
+  const [ratingModalPreset, setRatingModalPreset] = useState<Preset | null>(null);
+  const [ratingModalCommunityPreset, setRatingModalCommunityPreset] = useState<CommunityPreset | null>(null);
+  const [pendingRating, setPendingRating] = useState<number>(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingSuccess, setRatingSuccess] = useState(false);
+
+  // Auth & Moderator state
+  const [currentUserDiscordId, setCurrentUserDiscordId] = useState<string | null>(null);
+  const [currentUserInfo, setCurrentUserInfo] = useState<CurrentUserInfo | null>(null);
+  const [isModerator, setIsModerator] = useState(false);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+
+  // Community delete modal state (moderator only)
+  const [deleteCommunityModalOpen, setDeleteCommunityModalOpen] = useState(false);
+  const [deleteCommunityPresetId, setDeleteCommunityPresetId] = useState<string | null>(null);
+  const [deleteCommunityReason, setDeleteCommunityReason] = useState('');
+  const [deletingCommunityPreset, setDeletingCommunityPreset] = useState(false);
+
+  // Settings page accordion state
+  const [settingsExpanded, setSettingsExpanded] = useState<Record<string, boolean>>({
+    game: true,
+    runtime: false,
+    appearance: false,
+    about: false
+  });
+
+  // Gallery filter panel state
+  const [showGalleryFilters, setShowGalleryFilters] = useState(false);
 
   // Load settings on mount and check if first launch
   useEffect(() => {
@@ -303,6 +485,21 @@ const App: React.FC = () => {
         setCurrentPage('setup');
       }
       checkForUpdates();
+
+      // Check moderator status if logged in
+      try {
+        const authResponse = await invoke<{ user: CurrentUserInfo | null; is_authenticated: boolean }>('discord_get_current_user');
+        if (authResponse.is_authenticated && authResponse.user) {
+          setCurrentUserDiscordId(authResponse.user.id);
+          setCurrentUserInfo(authResponse.user);
+          const modResult = await invoke<{ success: boolean; is_moderator: boolean }>('check_moderator_status', { discordId: authResponse.user.id });
+          if (modResult.success && modResult.is_moderator) {
+            setIsModerator(true);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to check moderator status:', e);
+      }
     };
     init();
   }, []);
@@ -438,6 +635,225 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error('Failed to load installed presets:', e);
+    }
+  };
+
+  const loadCommunityPresets = async () => {
+    setCommunityLoading(true);
+    try {
+      // Load all community presets - filtering is done client-side
+      const result = await invoke<CommunityPreset[]>('fetch_community_presets', {
+        page: 1,
+        perPage: 100,
+        category: null,
+        search: null,
+      });
+      setCommunityPresets(result);
+    } catch (e) {
+      console.error('Failed to load community presets:', e);
+    } finally {
+      setCommunityLoading(false);
+    }
+  };
+
+  // ============== Discord Auth Handlers ==============
+  const handleDiscordLogin = async () => {
+    try {
+      // Start local OAuth callback server
+      const port = await invoke<number>('discord_start_oauth_server');
+      const authUrl = await invoke<string>('discord_get_auth_url_with_port', { port });
+
+      // Open in default browser
+      await shellOpen(authUrl);
+
+      // Poll for OAuth code
+      const pollForCode = async (): Promise<string | null> => {
+        for (let i = 0; i < 120; i++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const code = await invoke<string | null>('discord_check_oauth_code');
+          if (code) return code;
+        }
+        return null;
+      };
+
+      const code = await pollForCode();
+      if (!code) {
+        setError('Login timed out. Please try again.');
+        return;
+      }
+
+      // Complete OAuth flow
+      const response = await invoke<{ user: CurrentUserInfo | null; is_authenticated: boolean }>(
+        'discord_complete_oauth', { code, port }
+      );
+
+      if (response.is_authenticated && response.user) {
+        setCurrentUserDiscordId(response.user.id);
+        setCurrentUserInfo(response.user);
+        setViewingProfileId(response.user.id);
+
+        // Check moderator status
+        const modResult = await invoke<{ success: boolean; is_moderator: boolean }>(
+          'check_moderator_status', { discordId: response.user.id }
+        );
+        if (modResult.success && modResult.is_moderator) {
+          setIsModerator(true);
+        }
+      }
+    } catch (err) {
+      console.error('Discord login failed:', err);
+      setError(`Login failed: ${err}`);
+    }
+  };
+
+  const handleDiscordLogout = async () => {
+    try {
+      await invoke('discord_logout');
+      setCurrentUserDiscordId(null);
+      setCurrentUserInfo(null);
+      setIsModerator(false);
+      setViewingProfileId(null);
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
+  const loadTrendingPresets = async () => {
+    setTrendingLoading(true);
+    try {
+      const result = await invoke<CommunityPreset[]>('fetch_trending_presets', { limit: 6 });
+      setTrendingPresets(result);
+    } catch (e) {
+      console.error('Failed to load trending presets:', e);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
+  // Handle deleting a community preset (moderator only)
+  const handleDeleteCommunityPreset = async () => {
+    if (!deleteCommunityPresetId || !currentUserDiscordId) return;
+    setDeletingCommunityPreset(true);
+
+    try {
+      const result = await invoke<{ success: boolean; error?: string }>(
+        'delete_community_preset',
+        { presetId: deleteCommunityPresetId, discordId: currentUserDiscordId, reason: deleteCommunityReason || null }
+      );
+
+      if (result.success) {
+        // Remove from local state and close modal
+        setCommunityPresets(prev => prev.filter(p => p.id !== deleteCommunityPresetId));
+        setDeleteCommunityModalOpen(false);
+        setDeleteCommunityPresetId(null);
+        setDeleteCommunityReason('');
+      } else {
+        console.error('Failed to delete preset:', result.error);
+        setError(result.error || 'Failed to delete preset');
+      }
+    } catch (e) {
+      console.error('Error deleting preset:', e);
+      setError(`Error deleting preset: ${e}`);
+    } finally {
+      setDeletingCommunityPreset(false);
+    }
+  };
+
+  // Rating functions
+  const loadRatings = async () => {
+    setRatingsLoading(true);
+    try {
+      // Fetch all rating summaries
+      const ratingsResult = await invoke('get_preset_ratings') as {
+        success: boolean;
+        ratings: PresetRatingSummary[];
+        error?: string;
+      };
+      if (ratingsResult.success) {
+        const ratingsMap: Record<string, PresetRatingSummary> = {};
+        ratingsResult.ratings.forEach(r => {
+          ratingsMap[r.preset_id] = r;
+        });
+        setPresetRatings(ratingsMap);
+      }
+
+      // Fetch user's own ratings
+      const myRatingsResult = await invoke('get_my_ratings') as {
+        success: boolean;
+        ratings: Record<string, number>;
+        error?: string;
+      };
+      if (myRatingsResult.success) {
+        setMyRatings(myRatingsResult.ratings);
+      }
+    } catch (e) {
+      console.error('Failed to load ratings:', e);
+    }
+    setRatingsLoading(false);
+  };
+
+  // Open rating modal for an official preset
+  const openRatingModal = (preset: Preset) => {
+    setRatingModalPreset(preset);
+    setRatingModalCommunityPreset(null);
+    setPendingRating(myRatings[preset.id] || 0);
+    setRatingSuccess(false);
+    setRatingSubmitting(false);
+  };
+
+  // Open rating modal for a community preset
+  const openCommunityRatingModal = (preset: CommunityPreset) => {
+    setRatingModalCommunityPreset(preset);
+    setRatingModalPreset(null);
+    setPendingRating(myRatings[preset.id] || 0);
+    setRatingSuccess(false);
+    setRatingSubmitting(false);
+  };
+
+  // Close rating modal
+  const closeRatingModal = () => {
+    setRatingModalPreset(null);
+    setRatingModalCommunityPreset(null);
+    setPendingRating(0);
+    setRatingSuccess(false);
+    setRatingSubmitting(false);
+  };
+
+  // Get the currently active rating preset (either official or community)
+  const activeRatingPreset = ratingModalPreset || ratingModalCommunityPreset;
+
+  // Submit rating from modal
+  const handleSubmitRating = async () => {
+    if (!activeRatingPreset || pendingRating < 1 || pendingRating > 5) return;
+
+    setRatingSubmitting(true);
+    try {
+      const result = await invoke('rate_preset', {
+        presetId: activeRatingPreset.id,
+        rating: pendingRating
+      }) as {
+        success: boolean;
+        error?: string;
+      };
+      if (result.success) {
+        // Update local state
+        setMyRatings(prev => ({ ...prev, [activeRatingPreset.id]: pendingRating }));
+        // Refresh ratings to get updated averages
+        loadRatings();
+        // Show success state
+        setRatingSuccess(true);
+        // Auto-close after delay
+        setTimeout(() => {
+          closeRatingModal();
+        }, 1500);
+      } else {
+        setError(result.error || 'Failed to submit rating');
+        setRatingSubmitting(false);
+      }
+    } catch (e) {
+      console.error('Failed to rate preset:', e);
+      setError(`Failed to submit rating: ${e}`);
+      setRatingSubmitting(false);
     }
   };
 
@@ -611,17 +1027,19 @@ const App: React.FC = () => {
   };
 
   const handleRevealScreenshot = async (screenshotPath: string) => {
+    if (!installPath) return;
     try {
-      await invoke('reveal_screenshot_in_folder', { screenshotPath });
+      await invoke('reveal_screenshot_in_folder', { screenshotPath, hytalePath: installPath });
     } catch (e) {
       console.error('Failed to reveal screenshot:', e);
     }
   };
 
   const handleDeleteScreenshot = async (screenshot: Screenshot) => {
+    if (!installPath) return;
     if (!confirm(`Delete "${screenshot.filename}"? This cannot be undone.`)) return;
     try {
-      const result = await invoke('delete_screenshot', { screenshotPath: screenshot.path }) as { success: boolean; error?: string };
+      const result = await invoke('delete_screenshot', { screenshotPath: screenshot.path, hytalePath: installPath }) as { success: boolean; error?: string };
       if (result.success) {
         setScreenshots(prev => prev.filter(s => s.id !== screenshot.id));
         if (fullscreenScreenshot?.id === screenshot.id) {
@@ -813,6 +1231,7 @@ const App: React.FC = () => {
     if (currentPage === 'presets') {
       fetchPresets();
       loadInstalledPresets();
+      loadRatings();
     }
     if (currentPage === 'settings') {
       loadHotkeys();
@@ -822,15 +1241,77 @@ const App: React.FC = () => {
     }
   }, [currentPage]);
 
-  // Filter presets
-  const filteredPresets = presets.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         p.author.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Load community presets when switching to community tab
+  useEffect(() => {
+    if (currentPage === 'presets' && presetTab === 'community' && communityPresets.length === 0) {
+      loadCommunityPresets();
+    }
+  }, [presetTab, currentPage]);
+
+  // Load trending presets and ratings when on home page
+  useEffect(() => {
+    if (currentPage === 'home') {
+      if (trendingPresets.length === 0) {
+        loadTrendingPresets();
+      }
+      // Also load ratings for the home page
+      loadRatings();
+    }
+  }, [currentPage]);
+
+  // Filter and sort presets
+  const filteredPresets = presets
+    .filter(p => {
+      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           p.author.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => {
+      const ratingA = presetRatings[a.id];
+      const ratingB = presetRatings[b.id];
+
+      switch (presetSort) {
+        case 'rating-desc':
+          return (ratingB?.average_rating ?? 0) - (ratingA?.average_rating ?? 0);
+        case 'rating-asc':
+          return (ratingA?.average_rating ?? 0) - (ratingB?.average_rating ?? 0);
+        case 'most-rated':
+          return (ratingB?.total_ratings ?? 0) - (ratingA?.total_ratings ?? 0);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'category':
+          return a.category.localeCompare(b.category) || a.name.localeCompare(b.name);
+        case 'name-asc':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
 
   const categories = ['all', ...new Set(presets.map(p => p.category))];
+
+  // Filter and sort community presets (client-side like official presets)
+  const communityCategories = ['all', ...new Set(communityPresets.map(p => p.category))];
+  const filteredCommunityPresets = communityPresets
+    .filter(p => {
+      const matchesCategory = communityCategory === 'all' || p.category === communityCategory;
+      const matchesSearch = communitySearch === '' ||
+        p.name.toLowerCase().includes(communitySearch.toLowerCase()) ||
+        p.author_name.toLowerCase().includes(communitySearch.toLowerCase()) ||
+        p.description.toLowerCase().includes(communitySearch.toLowerCase());
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => {
+      switch (communitySort) {
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'category':
+          return a.category.localeCompare(b.category) || a.name.localeCompare(b.name);
+        case 'name-asc':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
 
   // Filter and sort screenshots
   const filteredScreenshots = screenshots
@@ -881,164 +1362,151 @@ const App: React.FC = () => {
       <div className="grain-overlay"></div>
 
       <div className="max-w-4xl mx-auto space-y-5">
-        {/* Hero Section - Keep tech corners here as main feature */}
-        <div className="card-hyfx p-6 lg:p-8 relative overflow-hidden">
-          {/* Tech corner decorations - kept for hero */}
-          <div className="corner-tl"></div>
-          <div className="corner-tr"></div>
-          <div className="corner-bl"></div>
-          <div className="corner-br"></div>
+        {/* Simplified Header - no duplicate launch buttons */}
+        <header className="mb-2">
+          <h1 className="font-hytale font-black text-2xl text-[var(--hytale-text-primary)] uppercase tracking-wide">Home</h1>
+          <p className="text-[var(--hytale-text-dim)] text-sm font-body mt-1">
+            {validationStatus === 'success'
+              ? 'Your Hytale graphics enhancement is ready to go'
+              : 'Configure your Hytale installation to get started'
+            }
+          </p>
+        </header>
 
-          <div className="flex items-start lg:items-center gap-5 lg:gap-6 relative z-10 flex-col lg:flex-row">
-            <div className="w-16 h-16 lg:w-20 lg:h-20 bg-[var(--hytale-bg-input)] rounded-lg p-3 border border-[var(--hytale-border-card)] flex-shrink-0">
-              <img src="/logo.png" alt="OrbisFX Logo" className="w-full h-full object-contain" />
+        {/* Setup Required Alert - only show when not configured */}
+        {validationStatus !== 'success' && (
+          <div className="bg-[var(--hytale-warning)]/10 border border-[var(--hytale-warning)]/30 rounded-lg p-4 flex items-center gap-4">
+            <AlertTriangle size={20} className="text-[var(--hytale-warning)] flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-[var(--hytale-text-primary)] text-sm font-medium">Setup Required</p>
+              <p className="text-[var(--hytale-text-dim)] text-xs mt-0.5">Configure your Hytale installation path in Settings to get started.</p>
             </div>
-            <div className="flex-1 w-full">
-              <h1 className="font-hytale font-black text-2xl lg:text-3xl text-[var(--hytale-text-primary)] mb-1">Welcome to OrbisFX</h1>
-              <p className="text-[var(--hytale-text-dim)] text-sm mb-4">Advanced graphics enhancement for Hytale</p>
-
-              {validationStatus === 'success' ? (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleLaunchGame}
-                      disabled={!canLaunchGame}
-                      className={`px-5 py-2.5 font-medium text-sm text-[var(--hytale-text-primary)] rounded-md flex items-center gap-2 transition-colors ${
-                        canLaunchGame
-                          ? 'bg-[var(--hytale-accent-blue)] hover:bg-[var(--hytale-accent-blue-hover)]'
-                          : 'bg-[var(--hytale-border-hover)] cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      <Play size={18} /> Launch Hytale
-                    </button>
-                    {validationResult?.gshade_installed && (
-                      <button
-                        onClick={() => handleToggleRuntime(!validationResult?.gshade_enabled)}
-                        className={`px-3 py-2.5 rounded-md flex items-center gap-2 text-sm transition-colors ${
-                          validationResult?.gshade_enabled
-                            ? 'text-[var(--hytale-success)] hover:bg-[var(--hytale-success-dim)]'
-                            : 'text-[var(--hytale-warning)] hover:bg-[var(--hytale-warning)]/10'
-                        }`}
-                      >
-                        <Power size={16} />
-                        {validationResult?.gshade_enabled ? 'Enabled' : 'Disabled'}
-                      </button>
-                    )}
-                  </div>
-                  {!validationResult?.gshade_installed && (
-                    <div className="flex items-center gap-2 text-[var(--hytale-warning)] text-sm">
-                      <AlertTriangle size={14} />
-                      <span>Runtime not installed. <button onClick={handleInstallRuntime} className="underline hover:brightness-110">Install now</button></span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button
-                  onClick={() => setCurrentPage('settings')}
-                  className="px-4 py-2.5 bg-[var(--hytale-bg-elevated)] border border-[var(--hytale-border-card)] rounded-md text-[var(--hytale-text-muted)] text-sm flex items-center gap-2 hover:bg-[var(--hytale-bg-hover)] hover:text-[var(--hytale-text-primary)] transition-colors"
-                >
-                  <Settings size={16} /> Configure Game Path
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Status Cards - Simplified */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Game Status */}
-          <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Gamepad2 size={18} className="text-[var(--hytale-accent-blue)]" />
-              <div className={`w-2 h-2 rounded-full ${validationStatus === 'success' ? 'bg-[var(--hytale-success)]' : 'bg-[var(--hytale-text-faint)]'}`}></div>
-            </div>
-            <span className="text-[var(--hytale-text-dim)] text-xs">Game Status</span>
-            <p className={`text-sm font-medium mt-0.5 ${validationStatus === 'success' ? 'text-[var(--hytale-success)]' : 'text-[var(--hytale-text-muted)]'}`}>
-              {validationStatus === 'success' ? 'Ready to play' : 'Not configured'}
-            </p>
-          </div>
-
-          {/* Runtime Status */}
-          <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <ShieldCheck size={18} className="text-[var(--hytale-accent-blue)]" />
-              <div className={`w-2 h-2 rounded-full ${validationResult?.gshade_installed ? (validationResult?.gshade_enabled ? 'bg-[var(--hytale-success)]' : 'bg-[var(--hytale-warning)]') : 'bg-[var(--hytale-text-faint)]'}`}></div>
-            </div>
-            <span className="text-[var(--hytale-text-dim)] text-xs">Runtime</span>
-            <p className={`text-sm font-medium mt-0.5 ${validationResult?.gshade_installed ? (validationResult?.gshade_enabled ? 'text-[var(--hytale-success)]' : 'text-[var(--hytale-warning)]') : 'text-[var(--hytale-text-muted)]'}`}>
-              {validationResult?.gshade_installed
-                ? (validationResult?.gshade_enabled ? 'Enabled' : 'Disabled')
-                : 'Not installed'}
-            </p>
-          </div>
-
-          {/* Updates */}
-          <div
-            className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-4 cursor-pointer hover:border-[var(--hytale-border-hover)] transition-colors"
-            onClick={() => updateAvailable && setShowUpdateModal(true)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <RefreshCw size={18} className="text-[var(--hytale-accent-blue)]" />
-              {updateAvailable && <span className="text-[var(--hytale-warning)] text-xs">New</span>}
-            </div>
-            <span className="text-[var(--hytale-text-dim)] text-xs">Updates</span>
-            <p className={`text-sm font-medium mt-0.5 ${updateAvailable ? 'text-[var(--hytale-warning)]' : 'text-[var(--hytale-success)]'}`}>
-              {updateAvailable ? `v${latestVersion} available` : 'Up to date'}
-            </p>
-          </div>
-        </div>
-
-        {/* Quick Actions - Simplified */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5">
-          <h2 className="text-[var(--hytale-text-primary)] text-sm font-medium mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
-              onClick={() => setCurrentPage('presets')}
-              className="bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-lg p-4 text-left hover:border-[var(--hytale-border-hover)] transition-colors group"
+              onClick={() => setCurrentPage('settings')}
+              className="px-4 py-2 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-sm rounded-md flex items-center gap-2 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Palette size={20} className="text-[var(--hytale-accent-blue)]" />
-                <div className="flex-1">
-                  <p className="text-[var(--hytale-text-primary)] text-sm">Browse Presets</p>
-                  <p className="text-[var(--hytale-text-dimmer)] text-xs mt-0.5">Explore community presets</p>
-                </div>
-                <ChevronRight size={16} className="text-[var(--hytale-text-faint)] group-hover:text-[var(--hytale-text-dim)] transition-colors" />
-              </div>
+              <Settings size={14} /> Configure
             </button>
+          </div>
+        )}
 
-            {validationResult?.gshade_installed ? (
+        {/* Runtime Not Installed Alert - only show when game is configured but runtime missing */}
+        {validationStatus === 'success' && !validationResult?.gshade_installed && (
+          <div className="bg-[var(--hytale-accent-blue)]/10 border border-[var(--hytale-accent-blue)]/30 rounded-lg p-4 flex items-center gap-4">
+            <Download size={20} className="text-[var(--hytale-accent-blue)] flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-[var(--hytale-text-primary)] text-sm font-medium">Install OrbisFX Runtime</p>
+              <p className="text-[var(--hytale-text-dim)] text-xs mt-0.5">Install the graphics runtime to enable preset effects.</p>
+            </div>
+            <button
+              onClick={handleInstallRuntime}
+              disabled={isInstalling}
+              className="px-4 py-2 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-sm rounded-md flex items-center gap-2 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors disabled:opacity-50"
+            >
+              <Download size={14} /> Install
+            </button>
+          </div>
+        )}
+
+        {/* Update Available Alert - more prominent */}
+        {updateAvailable && (
+          <div
+            className="bg-[var(--hytale-warning)]/10 border border-[var(--hytale-warning)]/30 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:bg-[var(--hytale-warning)]/15 transition-colors"
+            onClick={() => setShowUpdateModal(true)}
+          >
+            <RefreshCw size={20} className="text-[var(--hytale-warning)] flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-[var(--hytale-text-primary)] text-sm font-medium">Update Available</p>
+              <p className="text-[var(--hytale-text-dim)] text-xs mt-0.5">Version {latestVersion} is available. Click to update.</p>
+            </div>
+            <ChevronRight size={16} className="text-[var(--hytale-warning)]" />
+          </div>
+        )}
+
+        {/* Trending Presets Section */}
+        {trendingPresets.length > 0 && (
+          <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={18} className="text-[var(--hytale-accent-blue)]" />
+                <h2 className="text-[var(--hytale-text-primary)] text-sm font-medium">Trending Presets</h2>
+              </div>
               <button
-                onClick={handleUninstallRuntime}
-                disabled={isInstalling}
-                className="bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-lg p-4 text-left hover:border-[var(--hytale-border-hover)] transition-colors group disabled:opacity-50"
+                onClick={() => { setPresetTab('community'); setCurrentPage('presets'); }}
+                className="text-[var(--hytale-accent-blue)] text-xs hover:underline flex items-center gap-1"
               >
-                <div className="flex items-center gap-3">
-                  <Trash2 size={20} className="text-[var(--hytale-error)]" />
-                  <div className="flex-1">
-                    <p className="text-[var(--hytale-text-primary)] text-sm">Uninstall OrbisFX</p>
-                    <p className="text-[var(--hytale-text-dimmer)] text-xs mt-0.5">Remove runtime from game</p>
-                  </div>
-                  <ChevronRight size={16} className="text-[var(--hytale-text-faint)] group-hover:text-[var(--hytale-text-dim)] transition-colors" />
-                </div>
+                View all <ChevronRight size={12} />
               </button>
+            </div>
+            {trendingLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={24} className="animate-spin text-[var(--hytale-accent-blue)]" />
+              </div>
             ) : (
-              <button
-                onClick={handleInstallRuntime}
-                disabled={isInstalling || validationStatus !== 'success'}
-                className="bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-lg p-4 text-left hover:border-[var(--hytale-border-hover)] transition-colors group disabled:opacity-50"
-              >
-                <div className="flex items-center gap-3">
-                  <Download size={20} className="text-[var(--hytale-accent-blue)]" />
-                  <div className="flex-1">
-                    <p className="text-[var(--hytale-text-primary)] text-sm">Install OrbisFX</p>
-                    <p className="text-[var(--hytale-text-dimmer)] text-xs mt-0.5">Set up graphics runtime</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {trendingPresets.slice(0, 6).map(preset => (
+                  <div
+                    key={preset.id}
+                    className="bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-lg overflow-hidden hover:border-[var(--hytale-accent-blue)] transition-colors cursor-pointer group"
+                    onClick={() => {
+                      setSelectedCommunityPreset(preset);
+                      setCommunityImageIndex(0);
+                      setCommunityShowComparison(false);
+                    }}
+                  >
+                    <div className="aspect-video relative overflow-hidden">
+                      {(() => {
+                        // Use thumbnail_url, or first image's full_image_url, or fallback to placeholder
+                        const imageUrl = preset.thumbnail_url || preset.images?.[0]?.full_image_url;
+                        return imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={preset.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
+                            <Palette size={24} className="text-[var(--hytale-text-dimmer)]" />
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="p-2">
+                      <p className="text-[var(--hytale-text-primary)] text-xs font-medium truncate">{preset.name}</p>
+                      <div className="mt-1">
+                        <StarRating
+                          rating={myRatings[preset.id] ?? null}
+                          averageRating={presetRatings[preset.id]?.average_rating}
+                          totalRatings={presetRatings[preset.id]?.total_ratings ?? 0}
+                          size={10}
+                          compact={true}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[var(--hytale-text-dimmer)] text-[10px]">
+                          by{' '}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingProfileId(preset.author_discord_id);
+                              setCurrentPage('profile');
+                            }}
+                            className="text-[var(--hytale-accent-blue)] hover:underline"
+                          >
+                            {preset.author_name}
+                          </button>
+                        </span>
+                        <span className="text-[var(--hytale-text-dimmer)] text-[10px] flex items-center gap-0.5">
+                          <Download size={10} /> {preset.download_count}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <ChevronRight size={16} className="text-[var(--hytale-text-faint)] group-hover:text-[var(--hytale-text-dim)] transition-colors" />
-                </div>
-              </button>
+                ))}
+              </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* Installation Progress - Hytale Style */}
         {isInstalling && (
@@ -1080,117 +1548,172 @@ const App: React.FC = () => {
       {/* Film grain overlay */}
       <div className="grain-overlay"></div>
 
-      <div className="max-w-5xl mx-auto space-y-5">
-        {/* Page Header - Clean */}
-        <header className="mb-2">
-          <h1 className="font-hytale font-black text-2xl text-[var(--hytale-text-primary)] uppercase tracking-wide">Presets</h1>
-          <p className="text-[var(--hytale-text-dim)] text-sm font-body mt-1">Manage your installed presets and discover new ones</p>
+      <div className="max-w-5xl mx-auto space-y-4">
+        {/* Page Header with Submit Button */}
+        <header className="flex items-start justify-between">
+          <div>
+            <h1 className="font-hytale font-black text-2xl text-[var(--hytale-text-primary)] uppercase tracking-wide">Presets</h1>
+            <p className="text-[var(--hytale-text-dim)] text-sm font-body mt-1">Manage your installed presets and discover new ones</p>
+          </div>
+          {/* Submit Preset Button - Top Right */}
+          <button
+            onClick={() => setShowSubmissionWizard(true)}
+            disabled={installedPresets.filter(p => p.is_local).length === 0}
+            className="px-4 py-2 bg-[var(--hytale-accent-blue)] text-white rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-[var(--hytale-accent-blue-hover)] transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            title={installedPresets.filter(p => p.is_local).length === 0 ? 'Import a local preset first to submit it' : 'Submit your preset to the community'}
+          >
+            <Upload size={14} />
+            Submit Preset
+          </button>
         </header>
 
-        {/* Tab Switcher - Clean */}
+        {/* Tab Switcher - Compact */}
         <div className="flex gap-1 bg-[var(--hytale-bg-input)] p-1 rounded-lg">
           <button
             onClick={() => setPresetTab('library')}
-            className={`flex-1 py-2.5 px-4 rounded-md text-sm flex items-center justify-center gap-2 transition-colors ${
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
               presetTab === 'library'
-                ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)]'
-                : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)] shadow-sm'
+                : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-elevated)]'
             }`}
           >
-            <CheckCircle size={14} />
+            <CheckCircle size={15} />
             My Library
             {installedPresets.length > 0 && (
-              <span className="text-xs text-[var(--hytale-accent-blue)]">({installedPresets.length})</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-[var(--hytale-accent-blue)]/20 text-[var(--hytale-accent-blue)] rounded">{installedPresets.length}</span>
             )}
           </button>
           <button
             onClick={() => setPresetTab('public')}
-            className={`flex-1 py-2.5 px-4 rounded-md text-sm flex items-center justify-center gap-2 transition-colors ${
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
               presetTab === 'public'
-                ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)]'
-                : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)] shadow-sm'
+                : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-elevated)]'
             }`}
           >
-            <Sparkles size={14} />
-            Public Presets
+            <Sparkles size={15} />
+            Official
             {presets.length > 0 && (
-              <span className="text-xs text-[var(--hytale-accent-blue)]">({presets.length})</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-[var(--hytale-accent-blue)]/20 text-[var(--hytale-accent-blue)] rounded">{presets.length}</span>
             )}
+          </button>
+          <button
+            onClick={() => setPresetTab('community')}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+              presetTab === 'community'
+                ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)] shadow-sm'
+                : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-elevated)]'
+            }`}
+          >
+            <MessageCircle size={15} />
+            Community
           </button>
         </div>
 
         {/* My Library Tab Content */}
         {presetTab === 'library' && (
           <>
-            {/* Search and Import Bar - Clean */}
-            <div className="flex flex-col lg:flex-row gap-3">
-              <div className="flex-1 bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md flex items-center px-3 focus-within:border-[var(--hytale-accent-blue)] transition-colors">
-                <Search size={16} className="text-[var(--hytale-text-dimmer)]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search your presets..."
-                  className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
+            {/* Toolbar Section - Matches Official/Community Style */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Search input */}
+                <div className="flex-1 min-w-[200px] bg-[var(--hytale-bg-elevated)] rounded-lg flex items-center px-3 transition-colors">
+                  <Search size={18} className="text-[var(--hytale-text-dimmer)] shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search your presets..."
+                    className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="p-1.5 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-hover)] rounded-md transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter pills - Local/Official */}
+                <div className="flex gap-1 bg-[var(--hytale-bg-elevated)] rounded-lg p-1">
+                  {(['all', 'official', 'community', 'local'] as const).map(filter => (
+                    <button
+                      key={filter}
+                      onClick={() => setLibraryFilter(filter)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors whitespace-nowrap ${
+                        libraryFilter === filter
+                          ? 'bg-[var(--hytale-bg-input)] text-[var(--hytale-text-primary)] shadow-sm'
+                          : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Import Button */}
+                <button
+                  onClick={handleImportPreset}
+                  disabled={!installPath}
+                  className="px-4 py-2.5 bg-[var(--hytale-accent-blue)]/10 rounded-lg text-[var(--hytale-accent-blue)] text-sm font-medium flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--hytale-accent-blue)]/20 transition-all shrink-0"
+                >
+                  <Upload size={15} /> Import
+                </button>
               </div>
-              {/* Layout Toggle */}
-              <div className="flex gap-1 bg-[var(--hytale-bg-input)] rounded-md p-1">
-                {([
-                  { value: 'rows', icon: LayoutList },
-                  { value: 'grid', icon: LayoutGrid },
-                ] as const).map(({ value, icon: Icon }) => (
-                  <button
-                    key={value}
-                    onClick={() => saveSettings({ ...settings, presets_layout: value })}
-                    className={`p-2 rounded transition-all ${
-                      (settings.presets_layout || 'grid') === value
-                        ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-accent-blue)]'
-                        : 'text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)]'
-                    }`}
-                  >
-                    <Icon size={16} />
-                  </button>
-                ))}
+
+              {/* Results count */}
+              <div className="text-xs text-[var(--hytale-text-dimmer)]">
+                {(() => {
+                  const count = installedPresets.filter(p => {
+                    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      p.filename.toLowerCase().includes(searchQuery.toLowerCase());
+                    const source = p.source || (p.is_local ? 'local' : 'official');
+                    const matchesFilter = libraryFilter === 'all' ||
+                      (libraryFilter === 'local' && source === 'local') ||
+                      (libraryFilter === 'official' && source === 'official') ||
+                      (libraryFilter === 'community' && source === 'community');
+                    return matchesSearch && matchesFilter;
+                  }).length;
+                  return count === installedPresets.length
+                    ? `${count} preset${count !== 1 ? 's' : ''} installed`
+                    : `Showing ${count} of ${installedPresets.length} presets`;
+                })()}
               </div>
-              <button
-                onClick={handleImportPreset}
-                disabled={!installPath}
-                className="px-4 py-2.5 bg-[var(--hytale-bg-elevated)] border border-[var(--hytale-border-card)] rounded-md text-[var(--hytale-text-muted)] text-sm flex items-center gap-2 disabled:opacity-50 hover:bg-[var(--hytale-bg-hover)] hover:text-[var(--hytale-text-primary)] transition-colors"
-              >
-                <Upload size={14} /> Import Preset
-              </button>
             </div>
 
             {/* Installed Presets Grid */}
-            <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5">
-
-          {(() => {
-              // Filter installed presets by search query
-              const filteredInstalled = installedPresets.filter(p =>
-                p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.filename.toLowerCase().includes(searchQuery.toLowerCase())
-              );
+            {(() => {
+              // Filter installed presets by search query and category
+              const filteredInstalled = installedPresets.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  p.filename.toLowerCase().includes(searchQuery.toLowerCase());
+                const source = p.source || (p.is_local ? 'local' : 'official');
+                const matchesFilter = libraryFilter === 'all' ||
+                  (libraryFilter === 'local' && source === 'local') ||
+                  (libraryFilter === 'official' && source === 'official') ||
+                  (libraryFilter === 'community' && source === 'community');
+                return matchesSearch && matchesFilter;
+              });
 
               if (filteredInstalled.length === 0 && installedPresets.length === 0) {
                 return (
-                  <div className="text-center py-10">
-                    <Upload size={24} className="text-[var(--hytale-text-dimmer)] mx-auto mb-3" />
-                    <p className="text-[var(--hytale-text-muted)] text-sm">No presets installed yet</p>
-                    <p className="text-[var(--hytale-text-dimmer)] text-xs mt-1">Browse Public Presets or import your own</p>
+                  <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-12 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
+                      <Upload size={28} className="text-[var(--hytale-text-dimmer)]" />
+                    </div>
+                    <h3 className="font-hytale font-bold text-[var(--hytale-text-primary)] text-lg mb-2">
+                      No Presets Installed Yet
+                    </h3>
+                    <p className="text-[var(--hytale-text-muted)] text-sm max-w-md mx-auto mb-6">
+                      Browse official presets or import your own custom preset files
+                    </p>
                     <button
                       onClick={() => setPresetTab('public')}
-                      className="px-4 py-2 mt-4 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-sm rounded-md hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
+                      className="px-6 py-2.5 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-sm font-medium rounded-lg hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
                     >
-                      Browse Public Presets
+                      Browse Official Presets
                     </button>
                   </div>
                 );
@@ -1198,10 +1721,12 @@ const App: React.FC = () => {
 
               if (filteredInstalled.length === 0) {
                 return (
-                  <div className="text-center py-10">
-                    <Search size={24} className="text-[var(--hytale-text-dimmer)] mx-auto mb-3" />
-                    <p className="text-[var(--hytale-text-muted)] text-sm">No matching presets</p>
-                    <p className="text-[var(--hytale-text-dimmer)] text-xs mt-1">Try a different search term</p>
+                  <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-16 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
+                      <Search size={28} className="text-[var(--hytale-text-dimmer)]" />
+                    </div>
+                    <p className="text-[var(--hytale-text-primary)] font-medium mb-1">No presets found</p>
+                    <p className="text-[var(--hytale-text-dimmer)] text-sm">Try adjusting your search or filters</p>
                   </div>
                 );
               }
@@ -1212,100 +1737,116 @@ const App: React.FC = () => {
                 return a.name.localeCompare(b.name);
               });
 
-              const isGridLayout = (settings.presets_layout || 'grid') === 'grid';
-
               return (
-                <div className={isGridLayout ? 'grid grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2'}>
-                  {sortedPresets.map((preset, index) => (
-                    <div
-                      key={preset.id}
-                      className={`relative bg-[var(--hytale-bg-input)] border rounded-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5 animate-fade-in-up ${
-                        preset.is_active
-                          ? 'border-[var(--hytale-success)]/40'
-                          : 'border-[var(--hytale-border-card)] hover:border-[var(--hytale-border-hover)]'
-                      } ${isGridLayout ? 'p-3' : 'p-4'}`}
-                      style={{ animationDelay: `${Math.min(index * 0.05, 0.25)}s` }}
-                      onClick={() => !preset.is_active && handleActivatePreset(preset.id)}
-                    >
-                      {/* Active indicator */}
-                      {preset.is_active && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-[var(--hytale-success)] rounded-r"></div>
-                      )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sortedPresets.map((preset, index) => {
+                    // Find matching official preset for thumbnail and version check
+                    const matchingPreset = presets.find(p => p.id === preset.id);
+                    const matchingCommunityPreset = communityPresets.find(p => p.id === preset.id);
+                    const thumbnailUrl = matchingPreset?.thumbnail || matchingCommunityPreset?.thumbnail_url;
 
-                      <div className={isGridLayout ? '' : 'flex items-start justify-between'}>
-                        <div className={isGridLayout ? '' : 'flex-1 pl-2'}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className={`font-medium text-[var(--hytale-text-primary)] ${isGridLayout ? 'text-xs truncate' : 'text-sm'}`}>{preset.name}</h3>
+                    // Determine source type (use new field or fall back to is_local)
+                    const sourceType = preset.source || (preset.is_local ? 'local' : (matchingCommunityPreset ? 'community' : 'official'));
+                    const sourceLabel = sourceType === 'local' ? 'Local' : sourceType === 'community' ? 'Community' : 'Official';
+
+                    // Check for updates
+                    const latestVersion = matchingPreset?.version || matchingCommunityPreset?.version;
+                    const hasUpdate = latestVersion && isNewerVersion(preset.version, latestVersion);
+
+                    return (
+                      <div
+                        key={preset.id}
+                        className={`group bg-[var(--hytale-bg-card)] border rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg animate-fade-in-up ${
+                          preset.is_active
+                            ? 'border-[var(--hytale-success)]/40 hover:border-[var(--hytale-success)]/60'
+                            : hasUpdate
+                              ? 'border-[var(--hytale-accent-blue)]/40 hover:border-[var(--hytale-accent-blue)]/60'
+                              : 'border-[var(--hytale-border-card)] hover:border-[var(--hytale-border-hover)]'
+                        }`}
+                        style={{ animationDelay: `${Math.min(index * 0.04, 0.25)}s` }}
+                        onClick={() => !preset.is_active && handleActivatePreset(preset.id)}
+                      >
+                        {/* Thumbnail - matching Official/Community style */}
+                        <div className="h-40 bg-[var(--hytale-bg-input)] relative overflow-hidden">
+                          {thumbnailUrl ? (
+                            <CachedImage
+                              src={thumbnailUrl}
+                              alt={preset.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[var(--hytale-bg-elevated)] to-[var(--hytale-bg-input)]">
+                              <Palette size={36} className="text-[var(--hytale-border-hover)]" />
+                            </div>
+                          )}
+
+                          {/* Gradient overlay for text readability */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+
+                          {/* Source badge - top left */}
+                          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
+                            {sourceLabel}
+                          </div>
+
+                          {/* Status badges - top right */}
+                          <div className="absolute top-3 right-3 flex gap-1.5">
+                            {hasUpdate && (
+                              <div className="px-2.5 py-1 rounded-md bg-[var(--hytale-accent-blue)] text-white text-xs font-medium flex items-center gap-1.5 shadow-lg">
+                                <RefreshCw size={12} /> Update
+                              </div>
+                            )}
                             {preset.is_active && (
-                              <span className="text-[var(--hytale-success)] text-xs shrink-0">Active</span>
+                              <div className="px-2.5 py-1 rounded-md bg-[var(--hytale-success)] text-white text-xs font-medium flex items-center gap-1.5 shadow-lg">
+                                <CheckCircle size={12} /> Active
+                              </div>
                             )}
                           </div>
-                          <div className={`flex items-center gap-2 text-xs text-[var(--hytale-text-dimmer)] ${isGridLayout ? 'flex-wrap' : 'gap-3'}`}>
-                            <span>v{preset.version}</span>
-                            {preset.is_local && (
-                              <span className="text-[var(--hytale-accent-blue)]">Local</span>
-                            )}
-                            {!isGridLayout && (
-                              <span className="truncate max-w-[200px]">{preset.filename}</span>
-                            )}
-                          </div>
-                        </div>
 
-                        {!isGridLayout && (
+                          {/* Favorite button - bottom right */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleFavorite(preset.id);
                             }}
-                            className={`p-1.5 rounded transition-colors ${
+                            className={`absolute bottom-3 right-3 p-2 rounded-md backdrop-blur-sm transition-all ${
                               preset.is_favorite
-                                ? 'text-[var(--hytale-favorite)]'
-                                : 'text-[var(--hytale-text-faint)] hover:text-[var(--hytale-favorite)]'
+                                ? 'bg-[var(--hytale-favorite)]/80 text-white'
+                                : 'bg-black/50 text-white/70 hover:text-white hover:bg-black/60'
                             }`}
                           >
-                            <Star size={16} fill={preset.is_favorite ? 'currentColor' : 'none'} />
+                            <Star size={14} fill={preset.is_favorite ? 'currentColor' : 'none'} />
                           </button>
-                        )}
-                      </div>
+                        </div>
 
-                      {/* Actions */}
-                      <div className={`flex items-center gap-1 border-t border-[var(--hytale-border-card)] ${isGridLayout ? 'mt-2 pt-2' : 'mt-3 pt-3'}`}>
-                        {isGridLayout ? (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleFavorite(preset.id);
-                              }}
-                              className={`p-1 rounded transition-colors ${
-                                preset.is_favorite
-                                  ? 'text-[var(--hytale-favorite)]'
-                                  : 'text-[var(--hytale-text-faint)] hover:text-[var(--hytale-favorite)]'
-                              }`}
-                            >
-                              <Star size={12} fill={preset.is_favorite ? 'currentColor' : 'none'} />
-                            </button>
-                            <div className="flex-1"></div>
-                            {!preset.is_active && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleActivatePreset(preset.id);
-                                }}
-                                className="px-2 py-1 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-xs rounded flex items-center gap-1 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
-                              >
-                                <Play size={10} />
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <>
+                        {/* Info - matching Official/Community style */}
+                        <div className="p-5">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-[var(--hytale-text-primary)] text-base truncate">{preset.name}</h3>
+                              <p className="text-[var(--hytale-text-dimmer)] text-xs mt-1 truncate">{preset.filename}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 ml-3">
+                              <span className={`px-2 py-0.5 text-xs rounded-md ${
+                                hasUpdate
+                                  ? 'bg-[var(--hytale-text-dimmer)]/10 text-[var(--hytale-text-dimmer)] line-through'
+                                  : 'bg-[var(--hytale-accent-blue)]/10 text-[var(--hytale-accent-blue)]'
+                              }`}>v{preset.version}</span>
+                              {hasUpdate && latestVersion && (
+                                <span className="px-2 py-0.5 bg-[var(--hytale-accent-blue)]/10 text-[var(--hytale-accent-blue)] text-xs rounded-md">
+                                  v{latestVersion}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleExportPreset(preset.id, preset.filename);
                               }}
-                              className="px-2 py-1 text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] text-xs flex items-center gap-1 transition-colors"
+                              className="px-3 py-2 text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-elevated)] text-xs rounded-lg flex items-center gap-1.5 transition-all"
                             >
                               <Download size={12} /> Export
                             </button>
@@ -1314,65 +1855,112 @@ const App: React.FC = () => {
                                 e.stopPropagation();
                                 handleDeletePreset(preset.id);
                               }}
-                              className="px-2 py-1 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-error)] text-xs flex items-center gap-1 transition-colors"
+                              className="px-3 py-2 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-error)] hover:bg-[var(--hytale-error)]/10 text-xs rounded-lg flex items-center gap-1.5 transition-all"
                             >
                               <Trash2 size={12} /> Remove
                             </button>
                             <div className="flex-1"></div>
-                            {!preset.is_active && (
+                            {hasUpdate && matchingPreset && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadPreset(matchingPreset);
+                                }}
+                                className="px-4 py-2 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-xs font-medium rounded-lg flex items-center gap-1.5 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
+                              >
+                                <RefreshCw size={12} /> Update
+                              </button>
+                            )}
+                            {hasUpdate && matchingCommunityPreset && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!installPath) return;
+                                  try {
+                                    const sanitizedName = matchingCommunityPreset.name
+                                      .toLowerCase()
+                                      .replace(/[^a-z0-9]+/g, '-')
+                                      .replace(/^-|-$/g, '');
+                                    const destinationPath = `${installPath}\\reshade-presets\\${sanitizedName}.ini`;
+                                    await invoke('download_community_preset', {
+                                      presetId: matchingCommunityPreset.id,
+                                      presetUrl: matchingCommunityPreset.preset_file_url,
+                                      destinationPath: destinationPath,
+                                      presetName: matchingCommunityPreset.name,
+                                      presetVersion: matchingCommunityPreset.version
+                                    });
+                                    await loadInstalledPresets();
+                                  } catch (err) {
+                                    console.error('Failed to update preset:', err);
+                                    setError(`Failed to update preset: ${err}`);
+                                  }
+                                }}
+                                className="px-4 py-2 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-xs font-medium rounded-lg flex items-center gap-1.5 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
+                              >
+                                <RefreshCw size={12} /> Update
+                              </button>
+                            )}
+                            {!hasUpdate && !preset.is_active ? (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleActivatePreset(preset.id);
                                 }}
-                                className="px-3 py-1 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-xs rounded flex items-center gap-1 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
+                                className="px-4 py-2 bg-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)] text-xs font-medium rounded-lg flex items-center gap-1.5 hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
                               >
                                 <Play size={12} /> Activate
                               </button>
-                            )}
-                          </>
-                        )}
+                            ) : !hasUpdate && preset.is_active ? (
+                              <span className="px-4 py-2 bg-[var(--hytale-success)]/10 text-[var(--hytale-success)] text-xs font-medium rounded-lg flex items-center gap-1.5">
+                                <CheckCircle size={12} /> Active
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}
-            </div>
           </>
         )}
 
-        {/* Public Presets Tab Content */}
+        {/* Official Presets Tab Content */}
         {presetTab === 'public' && (
           <>
-            {/* Search and Filter Bar - Clean */}
-            <div className="flex flex-col lg:flex-row gap-3">
-              <div className="flex-1 bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md flex items-center px-3 focus-within:border-[var(--hytale-accent-blue)] transition-colors">
-                <Search size={16} className="text-[var(--hytale-text-dimmer)]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search community presets..."
-                  className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-1 bg-[var(--hytale-bg-input)] rounded-md p-1 overflow-x-auto">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded text-xs capitalize transition-colors whitespace-nowrap ${
-                      selectedCategory === cat
-                        ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)]'
+            {/* Toolbar Section - Single row layout */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Search input */}
+                <div className="flex-1 min-w-[200px] bg-[var(--hytale-bg-elevated)] rounded-lg flex items-center px-3 transition-colors">
+                  <Search size={18} className="text-[var(--hytale-text-dimmer)] shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search official presets..."
+                    className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="p-1.5 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-hover)] rounded-md transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category pills */}
+                <div className="flex gap-1 bg-[var(--hytale-bg-elevated)] rounded-lg p-1">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors whitespace-nowrap ${
+                        selectedCategory === cat
+                          ? 'bg-[var(--hytale-bg-input)] text-[var(--hytale-text-primary)] shadow-sm'
                           : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
                       }`}
                     >
@@ -1380,18 +1968,47 @@ const App: React.FC = () => {
                     </button>
                   ))}
                 </div>
+
+                {/* Sort dropdown */}
+                <div className="relative shrink-0">
+                  <select
+                    value={presetSort}
+                    onChange={(e) => setPresetSort(e.target.value as PresetSortOption)}
+                    className="appearance-none bg-[var(--hytale-bg-elevated)] rounded-lg pl-9 pr-9 py-2.5 text-[var(--hytale-text-primary)] text-sm focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="name-asc">Name A-Z</option>
+                    <option value="name-desc">Name Z-A</option>
+                    <option value="rating-desc">Highest Rated</option>
+                    <option value="rating-asc">Lowest Rated</option>
+                    <option value="most-rated">Most Rated</option>
+                    <option value="category">By Category</option>
+                  </select>
+                  <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Results count */}
+              <div className="text-xs text-[var(--hytale-text-dimmer)]">
+                {filteredPresets.length === presets.length
+                  ? `${filteredPresets.length} preset${filteredPresets.length !== 1 ? 's' : ''} available`
+                  : `Showing ${filteredPresets.length} of ${presets.length} presets`
+                }
+              </div>
             </div>
 
             {presetsLoading ? (
-              <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-12 text-center">
-                <div className="w-10 h-10 rounded-full border-2 border-[var(--hytale-border-card)] border-t-[var(--hytale-accent-blue)] animate-spin mx-auto"></div>
-                <p className="text-[var(--hytale-text-dim)] text-sm mt-4">Loading presets...</p>
+              <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-16 text-center">
+                <div className="w-12 h-12 rounded-full border-2 border-[var(--hytale-border-card)]/30 border-t-[var(--hytale-accent-blue)] animate-spin mx-auto"></div>
+                <p className="text-[var(--hytale-text-dim)] text-sm mt-5">Loading presets...</p>
               </div>
             ) : filteredPresets.length === 0 ? (
-              <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-12 text-center">
-                <Palette size={32} className="text-[var(--hytale-text-faint)] mx-auto mb-3" />
-                <p className="text-[var(--hytale-text-muted)] text-sm">No presets found</p>
-                <p className="text-[var(--hytale-text-dimmer)] text-xs mt-1">Try a different search term</p>
+              <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-16 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
+                  <Palette size={28} className="text-[var(--hytale-text-dimmer)]" />
+                </div>
+                <p className="text-[var(--hytale-text-primary)] font-medium mb-1">No presets found</p>
+                <p className="text-[var(--hytale-text-dimmer)] text-sm">Try adjusting your search or filters</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1403,60 +2020,71 @@ const App: React.FC = () => {
                   return (
                     <div
                       key={preset.id}
-                      className={`bg-[var(--hytale-bg-card)] border rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg animate-fade-in-up ${
-                        isInstalled
-                          ? 'border-[var(--hytale-success)]/30 hover:border-[var(--hytale-success)]/40'
-                          : 'border-[var(--hytale-border-card)] hover:border-[var(--hytale-border-hover)]'
-                      }`}
-                      style={{ animationDelay: `${Math.min(index * 0.05, 0.3)}s` }}
+                      className="group bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-[var(--hytale-border-hover)] animate-fade-in-up"
+                      style={{ animationDelay: `${Math.min(index * 0.04, 0.25)}s` }}
                       onClick={() => {
                         setSelectedPreset(preset);
                         setCurrentImageIndex(0);
                         setShowComparisonView(false);
                       }}
                     >
-                      {/* Thumbnail */}
-                      <div className="h-36 bg-[var(--hytale-bg-input)] relative overflow-hidden">
+                      {/* Thumbnail - taller for better visual impact */}
+                      <div className="h-40 bg-[var(--hytale-bg-input)] relative overflow-hidden">
                         {preset.thumbnail ? (
                           <CachedImage
                             src={preset.thumbnail}
                             alt={preset.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Palette size={32} className="text-[var(--hytale-border-hover)]" />
+                            <Palette size={36} className="text-[var(--hytale-border-hover)]" />
                           </div>
                         )}
 
-                        {/* Category badge */}
-                        <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs">
-                          {preset.category}
+                        {/* Gradient overlay for text readability */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+
+                        {/* Category badge - refined */}
+                        <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
+                          {toTitleCase(preset.category)}
                         </div>
 
-                        {/* Status badges */}
+                        {/* Status badges - refined */}
                         {isInstalled && !hasUpdate && (
-                          <div className="absolute top-2 right-2 px-2 py-1 rounded bg-[var(--hytale-success)]/80 text-white text-xs flex items-center gap-1">
-                            <CheckCircle size={10} /> Installed
+                          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-[var(--hytale-success)] text-white text-xs font-medium flex items-center gap-1.5 shadow-lg">
+                            <CheckCircle size={12} /> Installed
                           </div>
                         )}
                         {hasUpdate && (
-                          <div className="absolute top-2 right-2 px-2 py-1 rounded bg-[var(--hytale-warning-amber)]/80 text-[var(--hytale-bg-primary)] text-xs flex items-center gap-1">
-                            <RefreshCw size={10} /> Update
+                          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-[var(--hytale-warning-amber)] text-[var(--hytale-bg-primary)] text-xs font-medium flex items-center gap-1.5 shadow-lg">
+                            <RefreshCw size={12} /> Update
                           </div>
                         )}
                       </div>
 
-                      {/* Info */}
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-2">
+                      {/* Info - better spacing */}
+                      <div className="p-5">
+                        <div className="flex justify-between items-start mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-[var(--hytale-text-primary)] text-sm truncate">{preset.name}</h3>
-                            <p className="text-[var(--hytale-text-dimmer)] text-xs mt-0.5">by {preset.author}</p>
+                            <h3 className="font-semibold text-[var(--hytale-text-primary)] text-base truncate">{preset.name}</h3>
+                            <p className="text-[var(--hytale-text-dimmer)] text-xs mt-1">by {preset.author}</p>
                           </div>
-                          <span className="text-[var(--hytale-accent-blue)] text-xs ml-2">v{preset.version}</span>
+                          <span className="px-2 py-0.5 bg-[var(--hytale-accent-blue)]/10 text-[var(--hytale-accent-blue)] text-xs rounded-md ml-3">v{preset.version}</span>
                         </div>
-                        <p className="text-[var(--hytale-text-dim)] text-xs mb-3 line-clamp-2">{preset.description}</p>
+
+                        {/* Rating display */}
+                        <div className="mb-3">
+                          <StarRating
+                            rating={myRatings[preset.id] ?? null}
+                            averageRating={presetRatings[preset.id]?.average_rating}
+                            totalRatings={presetRatings[preset.id]?.total_ratings ?? 0}
+                            size={14}
+                            compact={true}
+                          />
+                        </div>
+
+                        <p className="text-[var(--hytale-text-dim)] text-sm mb-4 line-clamp-2 leading-relaxed">{preset.description}</p>
 
                         <button
                           onClick={(e) => {
@@ -1464,13 +2092,13 @@ const App: React.FC = () => {
                             handleDownloadPreset(preset);
                           }}
                           disabled={!installPath}
-                          className={`w-full py-2 text-xs text-[var(--hytale-text-primary)] rounded flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors ${
+                          className={`w-full py-2.5 text-sm font-medium text-[var(--hytale-text-primary)] rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all ${
                             isInstalled
                               ? 'bg-[var(--hytale-bg-elevated)] hover:bg-[var(--hytale-bg-hover)]'
                               : 'bg-[var(--hytale-accent-blue)] hover:bg-[var(--hytale-accent-blue-hover)]'
                           }`}
                         >
-                          <Download size={12} /> {isInstalled ? (hasUpdate ? 'Update' : 'Reinstall') : 'Install'}
+                          <Download size={14} /> {isInstalled ? (hasUpdate ? 'Update Available' : 'Reinstall') : 'Install Preset'}
                         </button>
                       </div>
                     </div>
@@ -1480,322 +2108,571 @@ const App: React.FC = () => {
             )}
           </>
         )}
+
+        {/* Community Tab Content */}
+        {presetTab === 'community' && (
+          <>
+            {/* Toolbar Section - Matches Official Presets Style */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Search input */}
+                <div className="flex-1 min-w-[200px] bg-[var(--hytale-bg-elevated)] rounded-lg flex items-center px-3 transition-colors">
+                  <Search size={18} className="text-[var(--hytale-text-dimmer)] shrink-0" />
+                  <input
+                    type="text"
+                    value={communitySearch}
+                    onChange={(e) => setCommunitySearch(e.target.value)}
+                    placeholder="Search community presets..."
+                    className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
+                  />
+                  {communitySearch && (
+                    <button
+                      onClick={() => setCommunitySearch('')}
+                      className="p-1.5 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-hover)] rounded-md transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category pills */}
+                <div className="flex gap-1 bg-[var(--hytale-bg-elevated)] rounded-lg p-1">
+                  {communityCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCommunityCategory(cat)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors whitespace-nowrap ${
+                        communityCategory === cat
+                          ? 'bg-[var(--hytale-bg-input)] text-[var(--hytale-text-primary)] shadow-sm'
+                          : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sort dropdown */}
+                <div className="relative shrink-0">
+                  <select
+                    value={communitySort}
+                    onChange={(e) => setCommunitySort(e.target.value as PresetSortOption)}
+                    className="appearance-none bg-[var(--hytale-bg-elevated)] rounded-lg pl-9 pr-9 py-2.5 text-[var(--hytale-text-primary)] text-sm focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="name-asc">Name A-Z</option>
+                    <option value="name-desc">Name Z-A</option>
+                    <option value="category">By Category</option>
+                  </select>
+                  <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Results count */}
+              <div className="text-xs text-[var(--hytale-text-dimmer)]">
+                {filteredCommunityPresets.length === communityPresets.length
+                  ? `${filteredCommunityPresets.length} preset${filteredCommunityPresets.length !== 1 ? 's' : ''} available`
+                  : `Showing ${filteredCommunityPresets.length} of ${communityPresets.length} presets`
+                }
+              </div>
+            </div>
+
+            {/* Community Presets Grid */}
+            {communityLoading ? (
+              <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-16 text-center">
+                <div className="w-12 h-12 rounded-full border-2 border-[var(--hytale-border-card)]/30 border-t-[var(--hytale-accent-blue)] animate-spin mx-auto"></div>
+                <p className="text-[var(--hytale-text-dim)] text-sm mt-5">Loading community presets...</p>
+              </div>
+            ) : filteredCommunityPresets.length === 0 && communityPresets.length === 0 ? (
+              <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
+                  <MessageCircle size={28} className="text-[var(--hytale-text-dimmer)]" />
+                </div>
+                <h3 className="font-hytale font-bold text-[var(--hytale-text-primary)] text-lg mb-2">
+                  No Community Presets Yet
+                </h3>
+                <p className="text-[var(--hytale-text-muted)] text-sm max-w-md mx-auto">
+                  Be one of the first to share your creations with the community!
+                </p>
+              </div>
+            ) : filteredCommunityPresets.length === 0 ? (
+              <div className="bg-[var(--hytale-bg-card)]/50 rounded-lg p-16 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
+                  <Palette size={28} className="text-[var(--hytale-text-dimmer)]" />
+                </div>
+                <p className="text-[var(--hytale-text-primary)] font-medium mb-1">No presets found</p>
+                <p className="text-[var(--hytale-text-dimmer)] text-sm">Try adjusting your search or filters</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredCommunityPresets.map((preset, index) => (
+                  <div
+                    key={preset.id}
+                    className={`group bg-[var(--hytale-bg-card)] border rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg animate-fade-in-up ${
+                      installedPresets.some(ip => ip.id === preset.id)
+                        ? 'border-[var(--hytale-success)]/20 hover:border-[var(--hytale-success)]/40'
+                        : 'border-[var(--hytale-border-card)] hover:border-[var(--hytale-border-hover)]'
+                    }`}
+                    style={{ animationDelay: `${Math.min(index * 0.04, 0.25)}s` }}
+                    onClick={() => {
+                      setSelectedCommunityPreset(preset);
+                      setCommunityImageIndex(0);
+                      setCommunityShowComparison(false);
+                    }}
+                  >
+                    {/* Thumbnail - same height as Official presets */}
+                    <div className="h-40 bg-[var(--hytale-bg-input)] relative overflow-hidden">
+                      {(() => {
+                        const imageUrl = preset.thumbnail_url || preset.images?.[0]?.full_image_url;
+                        return imageUrl ? (
+                          <img src={imageUrl} alt={preset.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Sparkles size={36} className="text-[var(--hytale-text-dimmer)]" />
+                          </div>
+                        );
+                      })()}
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+
+                      {/* Category badge - top left like Official */}
+                      <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
+                        {toTitleCase(preset.category)}
+                      </div>
+
+                      {/* Status badges - top right */}
+                      {installedPresets.some(ip => ip.id === preset.id) && (
+                        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-[var(--hytale-success)] text-white text-xs font-medium flex items-center gap-1.5 shadow-lg">
+                          <CheckCircle size={12} /> Installed
+                        </div>
+                      )}
+
+                      {/* Moderator delete button */}
+                      {isModerator && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteCommunityPresetId(preset.id);
+                            setDeleteCommunityReason('');
+                            setDeleteCommunityModalOpen(true);
+                          }}
+                          className="absolute bottom-3 left-3 p-2 bg-red-600/80 hover:bg-red-600 rounded-md text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete preset (Moderator)"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {/* Info - same structure as Official presets */}
+                    <div className="p-5">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-[var(--hytale-text-primary)] text-base truncate">{preset.name}</h3>
+                          <p className="text-[var(--hytale-text-dimmer)] text-xs mt-1">
+                            by{' '}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingProfileId(preset.author_discord_id);
+                                setCurrentPage('profile');
+                              }}
+                              className="text-[var(--hytale-accent-blue)] hover:underline font-medium"
+                            >
+                              {preset.author_name}
+                            </button>
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 bg-[var(--hytale-accent-blue)]/10 text-[var(--hytale-accent-blue)] text-xs rounded-md ml-3">v{preset.version}</span>
+                      </div>
+
+                      {/* Rating display */}
+                      <div className="mb-3">
+                        <StarRating
+                          rating={myRatings[preset.id] ?? null}
+                          averageRating={presetRatings[preset.id]?.average_rating}
+                          totalRatings={presetRatings[preset.id]?.total_ratings ?? 0}
+                          size={14}
+                          compact={true}
+                        />
+                      </div>
+
+                      <p className="text-[var(--hytale-text-dim)] text-sm mb-4 line-clamp-2 leading-relaxed">{preset.description}</p>
+
+                      {/* Install button - matching Official tab */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!installPath) return;
+                          try {
+                            const sanitizedName = preset.name
+                              .toLowerCase()
+                              .replace(/[^a-z0-9]+/g, '-')
+                              .replace(/^-|-$/g, '');
+                            const destinationPath = `${installPath}\\reshade-presets\\${sanitizedName}.ini`;
+                            await invoke('download_community_preset', {
+                              presetId: preset.id,
+                              presetUrl: preset.preset_file_url,
+                              destinationPath: destinationPath,
+                              presetName: preset.name,
+                              presetVersion: preset.version
+                            });
+                            await loadInstalledPresets();
+                          } catch (err) {
+                            console.error('Failed to install preset:', err);
+                            setError(`Failed to install preset: ${err}`);
+                          }
+                        }}
+                        disabled={!installPath}
+                        className={`w-full py-2.5 text-sm font-medium text-[var(--hytale-text-primary)] rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all ${
+                          installedPresets.some(ip => ip.id === preset.id)
+                            ? 'bg-[var(--hytale-bg-elevated)] hover:bg-[var(--hytale-bg-hover)]'
+                            : 'bg-[var(--hytale-accent-blue)] hover:bg-[var(--hytale-accent-blue-hover)]'
+                        }`}
+                      >
+                        <Download size={14} /> {installedPresets.some(ip => ip.id === preset.id) ? 'Reinstall' : 'Install Preset'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 
   // ============== Render Settings Page ==============
+  const toggleSettingsSection = (id: string) => {
+    setSettingsExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const renderSettingsPage = () => (
     <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
       {/* Film grain overlay */}
       <div className="grain-overlay"></div>
 
-      <div className="max-w-3xl mx-auto space-y-5">
-        {/* Page Header - Clean */}
-        <header className="mb-2">
-          <h1 className="font-hytale font-black text-2xl text-[var(--hytale-text-primary)] uppercase tracking-wide">Settings</h1>
-          <p className="text-[var(--hytale-text-dim)] text-sm font-body mt-1">Configure OrbisFX and manage your installation</p>
+      <div className="max-w-3xl mx-auto space-y-4">
+        {/* Page Header - Enhanced */}
+        <header className="mb-6">
+          <div className="flex items-center gap-4 mb-3">
+            <div className="w-12 h-12 rounded-xl bg-[var(--hytale-bg-elevated)] border border-[var(--hytale-border-card)] flex items-center justify-center">
+              <Settings size={22} className="text-[var(--hytale-accent-blue)]" />
+            </div>
+            <div>
+              <h1 className="font-hytale font-black text-2xl text-[var(--hytale-text-primary)] uppercase tracking-wide">Settings</h1>
+              <p className="text-[var(--hytale-text-muted)] text-sm font-body">Configure OrbisFX and manage your installation</p>
+            </div>
+          </div>
         </header>
 
-        {/* Game Path */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-              <FolderOpen size={18} className="text-[var(--hytale-accent-blue)]" />
-            </div>
-            <div>
-              <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">Game Installation Path</span>
-              <p className="text-[var(--hytale-text-dimmer)] text-xs font-body">Location of your Hytale client</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={installPath}
-              onChange={(e) => setInstallPath(e.target.value)}
-              placeholder="Select Hytale installation folder..."
-              className="flex-1 bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md px-4 py-2.5 text-[var(--hytale-text-primary)] text-sm font-mono placeholder-[var(--hytale-text-faint)] focus:border-[var(--hytale-accent-blue)] focus:outline-none transition-colors"
-            />
-            <button
-              onClick={handleBrowse}
-              className="px-4 py-2.5 bg-[var(--hytale-bg-elevated)] border border-[var(--hytale-border-card)] rounded-md text-[var(--hytale-text-muted)] text-sm font-medium flex items-center gap-2 hover:bg-[var(--hytale-bg-hover)] hover:text-[var(--hytale-text-primary)] transition-colors"
-            >
-              <FolderOpen size={16} /> Browse
-            </button>
-          </div>
-          {validationStatus === 'success' && (
-            <div className="flex items-center gap-2 mt-3 text-[var(--hytale-success)] text-sm font-body">
-              <CheckCircle size={14} /> Hytale installation detected
-            </div>
-          )}
-          {validationStatus === 'error' && installPath && (
-            <div className="flex items-center gap-2 mt-3 text-[var(--hytale-error)] text-sm font-body">
-              <AlertTriangle size={14} /> Invalid path - Hytale.exe not found
-            </div>
-          )}
-        </div>
-
-        {/* Runtime Toggle */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-                <Power size={18} className={validationResult?.gshade_enabled ? 'text-[var(--hytale-success)]' : 'text-[var(--hytale-accent-blue)]'} />
-              </div>
-              <div>
-                <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">Runtime Status</span>
-                <p className="text-[var(--hytale-text-dimmer)] text-xs font-body">Toggle graphics enhancements on/off</p>
-              </div>
-            </div>
-            {validationResult?.gshade_installed ? (
+        {/* Game Setup Section */}
+        <SettingsSection
+          id="game"
+          title="Game Setup"
+          description="Configure your Hytale installation path"
+          icon={<FolderOpen size={20} className="text-[var(--hytale-accent-blue)]" />}
+          expanded={settingsExpanded.game}
+          onToggle={() => toggleSettingsSection('game')}
+          badge={validationStatus === 'success' ? (
+            <span className="text-emerald-400 text-[10px] bg-emerald-500/15 px-2 py-0.5 rounded-full font-medium">Ready</span>
+          ) : validationStatus === 'error' ? (
+            <span className="text-red-400 text-[10px] bg-red-500/15 px-2 py-0.5 rounded-full font-medium">Error</span>
+          ) : null}
+        >
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={installPath}
+                onChange={(e) => setInstallPath(e.target.value)}
+                placeholder="Select Hytale installation folder..."
+                className="flex-1 bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-lg px-4 py-3 text-[var(--hytale-text-primary)] text-sm font-mono placeholder-[var(--hytale-text-faint)] focus:ring-2 focus:ring-[var(--hytale-accent-blue)]/30 focus:border-[var(--hytale-accent-blue)]/50 focus:outline-none transition-all"
+              />
               <button
-                onClick={() => handleToggleRuntime(!validationResult?.gshade_enabled)}
-                className={`relative w-14 h-7 rounded-full transition-colors ${
-                  validationResult?.gshade_enabled ? 'bg-[var(--hytale-success)]' : 'bg-[var(--hytale-border-card)]'
-                }`}
+                onClick={handleBrowse}
+                className="px-5 py-3 bg-[var(--hytale-bg-elevated)] border border-[var(--hytale-border-card)] rounded-lg text-[var(--hytale-text-muted)] text-sm font-medium flex items-center gap-2 hover:bg-[var(--hytale-bg-hover)] hover:border-[var(--hytale-border-hover)] hover:text-[var(--hytale-text-primary)] transition-all"
               >
-                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
-                  validationResult?.gshade_enabled ? 'translate-x-7' : 'translate-x-0.5'
-                }`} />
+                <FolderOpen size={16} /> Browse
               </button>
-            ) : (
-              <span className="text-[var(--hytale-text-dimmer)] text-xs font-body">Not installed</span>
+            </div>
+            {validationStatus === 'success' && (
+              <div className="flex items-center gap-3 text-emerald-400 text-sm font-body bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3">
+                <CheckCircle size={16} />
+                <span>Hytale installation detected</span>
+              </div>
+            )}
+            {validationStatus === 'error' && installPath && (
+              <div className="flex items-center gap-3 text-red-400 text-sm font-body bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+                <AlertTriangle size={16} />
+                <span>Invalid path - Hytale.exe not found</span>
+              </div>
             )}
           </div>
-        </div>
+        </SettingsSection>
 
-        {/* Runtime Installation */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-              <Download size={18} className="text-[var(--hytale-accent-blue)]" />
-            </div>
-            <div>
-              <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">OrbisFX Installation</span>
-              <p className="text-[var(--hytale-text-dimmer)] text-xs font-body">
-                {validationResult?.gshade_installed ? 'Runtime is installed' : 'Install graphics runtime'}
-              </p>
-            </div>
-          </div>
-          <p className="text-[var(--hytale-text-dim)] text-sm mb-4 font-body">
-            {validationResult?.gshade_installed
-              ? 'OrbisFX runtime is currently installed. You can reinstall to update or repair.'
-              : 'Install the OrbisFX runtime to enable graphics enhancements.'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleInstallRuntime}
-              disabled={isInstalling || validationStatus !== 'success'}
-              className="px-4 py-2 text-sm text-[var(--hytale-text-primary)] rounded-md flex items-center gap-2 disabled:opacity-50 bg-[var(--hytale-accent-blue)] hover:bg-[var(--hytale-accent-blue-hover)] transition-colors"
-            >
-              <Download size={14} /> {validationResult?.gshade_installed ? 'Reinstall' : 'Install'} OrbisFX
-            </button>
+        {/* OrbisFX Runtime Section */}
+        <SettingsSection
+          id="runtime"
+          title="OrbisFX Runtime"
+          description={validationResult?.gshade_installed ? 'Manage graphics enhancements' : 'Install graphics runtime'}
+          icon={<Power size={20} className={validationResult?.gshade_enabled ? 'text-emerald-400' : 'text-[var(--hytale-accent-blue)]'} />}
+          expanded={settingsExpanded.runtime}
+          onToggle={() => toggleSettingsSection('runtime')}
+          badge={validationResult?.gshade_installed ? (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${validationResult?.gshade_enabled ? 'text-emerald-400 bg-emerald-500/15' : 'text-amber-400 bg-amber-500/15'}`}>
+              {validationResult?.gshade_enabled ? 'Enabled' : 'Disabled'}
+            </span>
+          ) : (
+            <span className="text-[var(--hytale-text-dimmer)] text-[10px] bg-[var(--hytale-bg-input)] px-2 py-0.5 rounded-full">Not Installed</span>
+          )}
+        >
+          <div className="space-y-5">
+            {/* Runtime Toggle */}
             {validationResult?.gshade_installed && (
-              <button
-                onClick={handleUninstallRuntime}
-                disabled={isInstalling}
-                className="px-4 py-2 text-sm rounded-md flex items-center gap-2 disabled:opacity-50 text-[var(--hytale-error)] hover:bg-[var(--hytale-error)]/10 transition-colors"
-              >
-                <Trash2 size={14} /> Uninstall
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Hotkeys */}
-        {hotkeys && validationResult?.gshade_installed && (
-          <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-                <Keyboard size={18} className="text-[var(--hytale-accent-blue)]" />
-              </div>
-              <div>
-                <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">GShade Hotkeys</span>
-                <p className="text-[var(--hytale-text-dimmer)] text-xs font-body">Configure shortcuts in-game via GShade overlay</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {[
-                { label: 'Toggle Effects', key: hotkeys.key_effects },
-                { label: 'Toggle Overlay', key: hotkeys.key_overlay },
-                { label: 'Screenshot', key: hotkeys.key_screenshot },
-                { label: 'Next Preset', key: hotkeys.key_next_preset },
-                { label: 'Previous Preset', key: hotkeys.key_prev_preset },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-[var(--hytale-bg-input)] rounded-md px-3 py-2">
-                  <span className="text-[var(--hytale-text-dim)] text-sm font-body">{item.label}</span>
-                  <kbd className="bg-[var(--hytale-bg-elevated)] text-[var(--hytale-accent-blue)] text-xs px-2 py-1 rounded font-mono">{item.key}</kbd>
+              <div className="flex items-center justify-between bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-xl p-4">
+                <div>
+                  <span className="text-[var(--hytale-text-primary)] text-sm font-semibold">Enable Effects</span>
+                  <p className="text-[var(--hytale-text-muted)] text-xs mt-0.5">Toggle graphics enhancements on/off</p>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Updates */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-                <RefreshCw size={18} className={updateAvailable ? 'text-[var(--hytale-warning)]' : 'text-[var(--hytale-accent-blue)]'} />
-              </div>
-              <div>
-                <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">Updates</span>
-                <p className="text-[var(--hytale-text-dimmer)] text-xs font-mono">
-                  v{appVersion} {updateAvailable && <span className="text-[var(--hytale-warning)]">→ v{latestVersion}</span>}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {updateAvailable && (
                 <button
-                  onClick={() => setShowUpdateModal(true)}
-                  className="px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 bg-[var(--hytale-warning-amber)] text-[var(--hytale-bg-primary)] hover:brightness-110 transition-colors"
-                >
-                  <Download size={12} /> Update
-                </button>
-              )}
-              <button
-                onClick={checkForUpdates}
-                className="px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-elevated)] transition-colors"
-              >
-                <RefreshCw size={12} /> Check
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Tutorial */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-                <HelpCircle size={18} className="text-[var(--hytale-accent-blue)]" />
-              </div>
-              <div>
-                <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">Tutorial</span>
-                <p className="text-[var(--hytale-text-dimmer)] text-xs font-body">Learn how to use OrbisFX Launcher</p>
-              </div>
-            </div>
-            <button
-              onClick={handleReplayTutorial}
-              className="px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-elevated)] transition-colors"
-            >
-              <Play size={12} /> Replay
-            </button>
-          </div>
-          {settings.tutorial_completed && (
-            <div className="mt-3 flex items-center gap-2 text-[var(--hytale-success)] text-xs font-body">
-              <CheckCircle size={12} /> Tutorial completed
-            </div>
-          )}
-        </div>
-
-        {/* Appearance Settings */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-5 hover:border-[var(--hytale-border-hover)] transition-colors">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-md bg-[var(--hytale-bg-elevated)] flex items-center justify-center">
-              <Palette size={18} className="text-[var(--hytale-accent-blue)]" />
-            </div>
-            <div>
-              <span className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm">Appearance</span>
-              <p className="text-[var(--hytale-text-dim)] text-xs font-body">Customize the look and feel of the launcher</p>
-            </div>
-          </div>
-
-          {/* Theme Selection */}
-          <div className="mb-5">
-            <label className="text-[var(--hytale-text-secondary)] text-xs font-body mb-3 block">Color Theme</label>
-            <div className="grid grid-cols-4 gap-2">
-              {([
-                { value: 'system', label: 'System', icon: Monitor, desc: 'Sync with OS' },
-                { value: 'light', label: 'Light', icon: Sun, desc: 'Light mode' },
-                { value: 'dark', label: 'Dark', icon: Moon, desc: 'Dark mode' },
-                { value: 'oled', label: 'OLED', icon: Moon, desc: 'True black' },
-              ] as const).map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => saveSettings({ ...settings, theme: value })}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
-                    (settings.theme || 'system') === value
-                      ? 'bg-[var(--hytale-bg-elevated)] border-[var(--hytale-accent-blue)] text-[var(--hytale-text-primary)]'
-                      : 'bg-[var(--hytale-bg-input)] border-[var(--hytale-border-card)] text-[var(--hytale-text-muted)] hover:border-[var(--hytale-border-light)] hover:text-[var(--hytale-text-secondary)]'
+                  onClick={() => handleToggleRuntime(!validationResult?.gshade_enabled)}
+                  className={`relative w-14 h-7 rounded-full transition-all duration-200 ${
+                    validationResult?.gshade_enabled ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-[var(--hytale-border-card)]'
                   }`}
                 >
-                  <Icon size={20} className={settings.theme === value ? 'text-[var(--hytale-accent-blue)]' : ''} />
-                  <span className="text-xs font-body font-medium">{label}</span>
+                  <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-200 ${
+                    validationResult?.gshade_enabled ? 'translate-x-7' : 'translate-x-0.5'
+                  }`} />
                 </button>
-              ))}
-            </div>
-            <p className="text-[var(--hytale-text-dimmer)] text-xs font-body mt-2">
-              Currently using: <span className="text-[var(--hytale-text-muted)]">{resolvedTheme}</span> theme
-            </p>
-          </div>
+              </div>
+            )}
 
-          {/* Layout Preferences */}
-          <div className="border-t border-[var(--hytale-border-card)] pt-5">
-            <label className="text-[var(--hytale-text-secondary)] text-xs font-body mb-3 block">Default Layouts</label>
-
-            {/* Presets Layout */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[var(--hytale-text-muted)] text-xs font-body">Presets Library</span>
-              <div className="flex gap-1">
-                {([
-                  { value: 'rows', icon: LayoutList, label: 'Rows' },
-                  { value: 'grid', icon: LayoutGrid, label: 'Grid' },
-                  { value: 'gallery', icon: GalleryHorizontal, label: 'Gallery' },
-                ] as const).map(({ value, icon: Icon, label }) => (
+            {/* Install/Uninstall Buttons */}
+            <div>
+              <p className="text-[var(--hytale-text-muted)] text-sm mb-4 font-body leading-relaxed">
+                {validationResult?.gshade_installed
+                  ? 'OrbisFX runtime is installed. You can reinstall to update or repair.'
+                  : 'Install the OrbisFX runtime to enable graphics enhancements.'}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleInstallRuntime}
+                  disabled={isInstalling || validationStatus !== 'success'}
+                  className="px-5 py-2.5 text-sm text-white rounded-lg flex items-center gap-2 disabled:opacity-50 bg-gradient-to-r from-[var(--hytale-accent-blue)] to-purple-600 hover:shadow-lg hover:shadow-[var(--hytale-accent-blue)]/20 transition-all"
+                >
+                  <Download size={16} /> {validationResult?.gshade_installed ? 'Reinstall' : 'Install'} OrbisFX
+                </button>
+                {validationResult?.gshade_installed && (
                   <button
-                    key={value}
-                    onClick={() => saveSettings({ ...settings, presets_layout: value })}
-                    title={label}
-                    className={`p-2 rounded-md transition-all ${
-                      (settings.presets_layout || 'grid') === value
-                        ? 'bg-[var(--hytale-bg-elevated)] text-[var(--hytale-accent-blue)]'
-                        : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-muted)] hover:bg-[var(--hytale-bg-card)]'
-                    }`}
+                    onClick={handleUninstallRuntime}
+                    disabled={isInstalling}
+                    className="px-5 py-2.5 text-sm rounded-lg flex items-center gap-2 disabled:opacity-50 text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all"
                   >
-                    <Icon size={16} />
+                    <Trash2 size={16} /> Uninstall
                   </button>
-                ))}
+                )}
               </div>
             </div>
 
-            {/* Gallery Layout */}
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--hytale-text-muted)] text-xs font-body">Screenshot Gallery</span>
-              <div className="flex gap-1">
+            {/* Hotkeys */}
+            {hotkeys && validationResult?.gshade_installed && (
+              <div className="pt-4 border-t border-[var(--hytale-border-card)]">
+                <div className="flex items-center gap-2 mb-4">
+                  <Keyboard size={16} className="text-[var(--hytale-accent-blue)]" />
+                  <span className="text-[var(--hytale-text-primary)] text-sm font-semibold">GShade Hotkeys</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {[
+                    { label: 'Toggle Effects', key: hotkeys.key_effects },
+                    { label: 'Toggle Overlay', key: hotkeys.key_overlay },
+                    { label: 'Screenshot', key: hotkeys.key_screenshot },
+                    { label: 'Next Preset', key: hotkeys.key_next_preset },
+                    { label: 'Previous Preset', key: hotkeys.key_prev_preset },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg px-4 py-2.5">
+                      <span className="text-[var(--hytale-text-muted)] text-sm font-body">{item.label}</span>
+                      <kbd className="bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] text-[var(--hytale-accent-blue)] text-xs px-2.5 py-1 rounded-md font-mono font-medium">{item.key}</kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </SettingsSection>
+
+        {/* Appearance Section */}
+        <SettingsSection
+          id="appearance"
+          title="Appearance"
+          description="Theme and layout preferences"
+          icon={<Palette size={20} className="text-[var(--hytale-accent-blue)]" />}
+          expanded={settingsExpanded.appearance}
+          onToggle={() => toggleSettingsSection('appearance')}
+        >
+          <div className="space-y-6">
+            {/* Theme Selection */}
+            <div>
+              <label className="text-[var(--hytale-text-primary)] text-sm font-semibold mb-4 block">Color Theme</label>
+              <div className="grid grid-cols-4 gap-3">
                 {([
-                  { value: 'rows', icon: LayoutList, label: 'Rows' },
-                  { value: 'grid', icon: LayoutGrid, label: 'Grid' },
-                  { value: 'gallery', icon: GalleryHorizontal, label: 'Gallery' },
-                ] as const).map(({ value, icon: Icon, label }) => (
+                  { value: 'system', label: 'System', icon: Monitor },
+                  { value: 'light', label: 'Light', icon: Sun },
+                  { value: 'dark', label: 'Dark', icon: Moon },
+                  { value: 'oled', label: 'OLED', icon: Moon },
+                ] as const).map(({ value, label, icon: Icon }) => (
                   <button
                     key={value}
-                    onClick={() => saveSettings({ ...settings, gallery_layout: value })}
-                    title={label}
-                    className={`p-2 rounded-md transition-all ${
-                      (settings.gallery_layout || 'grid') === value
-                        ? 'bg-[var(--hytale-bg-elevated)] text-[var(--hytale-accent-blue)]'
-                        : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-muted)] hover:bg-[var(--hytale-bg-card)]'
+                    onClick={() => saveSettings({ ...settings, theme: value })}
+                    className={`flex flex-col items-center gap-2.5 p-4 rounded-xl border transition-all duration-200 ${
+                      (settings.theme || 'system') === value
+                        ? 'bg-gradient-to-br from-[var(--hytale-accent-blue)]/20 to-purple-500/10 border-[var(--hytale-accent-blue)]/50 ring-2 ring-[var(--hytale-accent-blue)]/30 text-[var(--hytale-text-primary)] shadow-lg shadow-[var(--hytale-accent-blue)]/10'
+                        : 'bg-[var(--hytale-bg-input)] border-[var(--hytale-border-card)] text-[var(--hytale-text-muted)] hover:bg-[var(--hytale-bg-elevated)] hover:border-[var(--hytale-border-hover)] hover:text-[var(--hytale-text-secondary)]'
                     }`}
                   >
-                    <Icon size={16} />
+                    <Icon size={22} className={(settings.theme || 'system') === value ? 'text-[var(--hytale-accent-blue)]' : ''} />
+                    <span className="text-xs font-body font-medium">{label}</span>
                   </button>
                 ))}
               </div>
+              <p className="text-[var(--hytale-text-muted)] text-xs font-body mt-3">
+                Currently using: <span className="text-[var(--hytale-accent-blue)] font-medium">{resolvedTheme}</span> theme
+              </p>
+            </div>
+
+            {/* Layout Preferences */}
+            <div className="pt-4 border-t border-[var(--hytale-border-card)]">
+              <label className="text-[var(--hytale-text-primary)] text-sm font-semibold mb-4 block">Default Layouts</label>
+
+              {/* Presets Layout */}
+              <div className="flex items-center justify-between bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-xl p-4 mb-3">
+                <span className="text-[var(--hytale-text-muted)] text-sm font-body">Presets Library</span>
+                <div className="flex gap-1 bg-[var(--hytale-bg-card)] rounded-lg p-1 border border-[var(--hytale-border-card)]">
+                  {([
+                    { value: 'rows', icon: LayoutList, label: 'Rows' },
+                    { value: 'grid', icon: LayoutGrid, label: 'Grid' },
+                    { value: 'gallery', icon: GalleryHorizontal, label: 'Gallery' },
+                  ] as const).map(({ value, icon: Icon, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => saveSettings({ ...settings, presets_layout: value })}
+                      title={label}
+                      className={`p-2 rounded-md transition-all ${
+                        (settings.presets_layout || 'grid') === value
+                          ? 'bg-[var(--hytale-accent-blue)] text-white shadow-sm'
+                          : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                      }`}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Gallery Layout */}
+              <div className="flex items-center justify-between bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-xl p-4">
+                <span className="text-[var(--hytale-text-muted)] text-sm font-body">Screenshot Gallery</span>
+                <div className="flex gap-1 bg-[var(--hytale-bg-card)] rounded-lg p-1 border border-[var(--hytale-border-card)]">
+                  {([
+                    { value: 'rows', icon: LayoutList, label: 'Rows' },
+                    { value: 'grid', icon: LayoutGrid, label: 'Grid' },
+                    { value: 'gallery', icon: GalleryHorizontal, label: 'Gallery' },
+                  ] as const).map(({ value, icon: Icon, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => saveSettings({ ...settings, gallery_layout: value })}
+                      title={label}
+                      className={`p-2 rounded-md transition-all ${
+                        (settings.gallery_layout || 'grid') === value
+                          ? 'bg-[var(--hytale-accent-blue)] text-white shadow-sm'
+                          : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                      }`}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </SettingsSection>
 
-        {/* About */}
-        <div className="bg-[var(--hytale-bg-card)] border border-[var(--hytale-border-card)] rounded-lg p-6 text-center">
-          <div className="w-16 h-16 bg-[var(--hytale-bg-elevated)] rounded-lg p-3 mx-auto mb-4">
-            <img src="/logo.png" alt="OrbisFX" className="w-full h-full object-contain" />
+        {/* About & Help Section */}
+        <SettingsSection
+          id="about"
+          title="About & Help"
+          description={`OrbisFX Launcher v${appVersion}`}
+          icon={<Info size={20} className="text-[var(--hytale-accent-blue)]" />}
+          expanded={settingsExpanded.about}
+          onToggle={() => toggleSettingsSection('about')}
+          badge={updateAvailable ? (
+            <span className="text-amber-400 text-[10px] bg-amber-500/15 px-2 py-0.5 rounded-full font-medium animate-pulse">Update Available</span>
+          ) : null}
+        >
+          <div className="space-y-4">
+            {/* Updates */}
+            <div className="flex items-center justify-between bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-xl p-4">
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${updateAvailable ? 'bg-amber-500/15' : 'bg-[var(--hytale-accent-blue)]/15'}`}>
+                  <RefreshCw size={18} className={updateAvailable ? 'text-amber-400' : 'text-[var(--hytale-accent-blue)]'} />
+                </div>
+                <div>
+                  <span className="text-[var(--hytale-text-primary)] text-sm font-semibold">Updates</span>
+                  <p className="text-[var(--hytale-text-muted)] text-xs font-mono mt-0.5">
+                    v{appVersion} {updateAvailable && <span className="text-amber-400">→ v{latestVersion}</span>}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {updateAvailable && (
+                  <button
+                    onClick={() => setShowUpdateModal(true)}
+                    className="px-4 py-2 rounded-lg text-xs flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium hover:shadow-lg hover:shadow-amber-500/20 transition-all"
+                  >
+                    <Download size={14} /> Update
+                  </button>
+                )}
+                <button
+                  onClick={checkForUpdates}
+                  className="px-4 py-2 rounded-lg text-xs flex items-center gap-2 text-[var(--hytale-text-muted)] border border-[var(--hytale-border-card)] hover:text-[var(--hytale-text-primary)] hover:border-[var(--hytale-border-hover)] hover:bg-[var(--hytale-bg-hover)] transition-all"
+                >
+                  <RefreshCw size={14} /> Check
+                </button>
+              </div>
+            </div>
+
+            {/* Tutorial */}
+            <div className="flex items-center justify-between bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-xl p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center">
+                  <HelpCircle size={18} className="text-purple-400" />
+                </div>
+                <div>
+                  <span className="text-[var(--hytale-text-primary)] text-sm font-semibold">Tutorial</span>
+                  <p className="text-[var(--hytale-text-muted)] text-xs font-body mt-0.5">
+                    {settings.tutorial_completed ? 'Completed ✓' : 'Learn how to use OrbisFX'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleReplayTutorial}
+                className="px-4 py-2 rounded-lg text-xs flex items-center gap-2 text-[var(--hytale-text-muted)] border border-[var(--hytale-border-card)] hover:text-[var(--hytale-text-primary)] hover:border-[var(--hytale-border-hover)] hover:bg-[var(--hytale-bg-hover)] transition-all"
+              >
+                <Play size={14} /> Replay
+              </button>
+            </div>
+
+            {/* About Info */}
+            <div className="text-center pt-6 border-t border-[var(--hytale-border-card)]">
+              <div className="w-16 h-16 bg-gradient-to-br from-[var(--hytale-accent-blue)]/20 to-purple-500/20 rounded-2xl p-3 mx-auto mb-4 border border-[var(--hytale-border-card)]">
+                <img src="/logo.png" alt="OrbisFX" className="w-full h-full object-contain" />
+              </div>
+              <h3 className="font-hytale font-bold text-[var(--hytale-text-primary)] text-lg tracking-wide">OrbisFX Launcher</h3>
+              <p className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--hytale-accent-blue)] to-purple-500 text-sm mt-1 font-mono font-bold">v{appVersion}</p>
+              <p className="text-[var(--hytale-text-muted)] text-xs font-body mt-3">© 2024 OrbisFX Team. All rights reserved.</p>
+            </div>
           </div>
-          <h3 className="font-hytale font-bold text-[var(--hytale-text-primary)] text-lg">OrbisFX Launcher</h3>
-          <p className="text-[var(--hytale-accent-blue)] text-sm mt-1 font-mono">v{appVersion}</p>
-          <p className="text-[var(--hytale-text-dimmer)] text-xs font-body mt-3">© 2024 OrbisFX Team</p>
-        </div>
+        </SettingsSection>
       </div>
     </div>
   );
@@ -1831,117 +2708,160 @@ const App: React.FC = () => {
           <p className="text-[var(--hytale-text-dim)] text-sm font-body mt-1">View and manage your GShade screenshots</p>
         </header>
 
-        {/* Search and Filter Bar - Clean */}
-        <div className="flex flex-col lg:flex-row gap-3">
-          {/* Search input */}
-          <div className="flex-1 bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md flex items-center px-3 focus-within:border-[var(--hytale-accent-blue)] transition-colors">
-            <Search size={16} className="text-[var(--hytale-text-dimmer)]" />
-            <input
-              type="text"
-              value={screenshotSearchQuery}
-              onChange={(e) => setScreenshotSearchQuery(e.target.value)}
-              placeholder="Search by filename or preset..."
-              className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
-            />
-            {screenshotSearchQuery && (
-              <button
-                onClick={() => setScreenshotSearchQuery('')}
-                className="p-1 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] transition-colors"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Filter toggle group */}
-          <div className="flex gap-1 bg-[var(--hytale-bg-input)] rounded-md p-1">
-            <button
-              onClick={() => setScreenshotFilter('all')}
-              className={`px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
-                screenshotFilter === 'all'
-                  ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-text-primary)]'
-                  : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
-              }`}
-            >
-              <Grid size={12} /> All
-            </button>
-            <button
-              onClick={() => setScreenshotFilter('favorites')}
-              className={`px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
-                screenshotFilter === 'favorites'
-                  ? 'bg-[var(--hytale-bg-card)] text-rose-400'
-                  : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
-              }`}
-            >
-              <Heart size={12} fill={screenshotFilter === 'favorites' ? 'currentColor' : 'none'} /> Favorites
-            </button>
-          </div>
-
-          {/* Preset filter dropdown */}
-          {screenshotPresets.length > 0 && (
-            <div className="relative">
-              <select
-                value={screenshotPresetFilter}
-                onChange={(e) => setScreenshotPresetFilter(e.target.value)}
-                className="appearance-none bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md pl-3 pr-8 py-2 text-[var(--hytale-text-primary)] text-sm focus:border-[var(--hytale-accent-blue)] focus:outline-none transition-colors cursor-pointer"
-              >
-                <option value="all">All Presets ({screenshotPresets.length})</option>
-                {screenshotPresets.map(preset => (
-                  <option key={preset} value={preset}>{preset}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+        {/* Search and Filter Bar - Simplified */}
+        <div className="space-y-3">
+          {/* Main controls row */}
+          <div className="flex flex-col lg:flex-row gap-3">
+            {/* Search input */}
+            <div className="flex-1 bg-[var(--hytale-bg-elevated)] rounded-lg flex items-center px-3 transition-colors">
+              <Search size={16} className="text-[var(--hytale-text-dimmer)]" />
+              <input
+                type="text"
+                value={screenshotSearchQuery}
+                onChange={(e) => setScreenshotSearchQuery(e.target.value)}
+                placeholder="Search by filename or preset..."
+                className="bg-transparent w-full py-2.5 px-3 text-[var(--hytale-text-primary)] outline-none placeholder-[var(--hytale-text-faint)] text-sm"
+              />
+              {screenshotSearchQuery && (
+                <button
+                  onClick={() => setScreenshotSearchQuery('')}
+                  className="p-1 text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)] transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
-          )}
 
-          {/* Sort dropdown */}
-          <div className="relative">
-            <select
-              value={screenshotSort}
-              onChange={(e) => setScreenshotSort(e.target.value as typeof screenshotSort)}
-              className="appearance-none bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md pl-8 pr-8 py-2 text-[var(--hytale-text-primary)] text-sm focus:border-[var(--hytale-accent-blue)] focus:outline-none transition-colors cursor-pointer"
-            >
-              <option value="date-desc">Newest First</option>
-              <option value="date-asc">Oldest First</option>
-              <option value="name-asc">Name A-Z</option>
-              <option value="name-desc">Name Z-A</option>
-              <option value="size-desc">Largest First</option>
-              <option value="size-asc">Smallest First</option>
-              <option value="preset-asc">Preset A-Z</option>
-              <option value="preset-desc">Preset Z-A</option>
-              <option value="favorites">Favorites First</option>
-            </select>
-            <ArrowUpDown size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--hytale-accent-blue)] pointer-events-none" />
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
-          </div>
-
-          {/* Layout Toggle */}
-          <div className="flex gap-1 bg-[var(--hytale-bg-input)] rounded-md p-1">
-            {([
-              { value: 'grid', icon: LayoutGrid },
-              { value: 'gallery', icon: GalleryHorizontal },
-            ] as const).map(({ value, icon: Icon }) => (
+            {/* All/Favorites toggle */}
+            <div className="flex gap-1 bg-[var(--hytale-bg-elevated)] rounded-lg p-1">
               <button
-                key={value}
-                onClick={() => saveSettings({ ...settings, gallery_layout: value })}
-                className={`p-2 rounded transition-all ${
-                  (settings.gallery_layout || 'grid') === value
-                    ? 'bg-[var(--hytale-bg-card)] text-[var(--hytale-accent-blue)]'
-                    : 'text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)]'
+                onClick={() => setScreenshotFilter('all')}
+                className={`px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
+                  screenshotFilter === 'all'
+                    ? 'bg-[var(--hytale-bg-input)] text-[var(--hytale-text-primary)] shadow-sm'
+                    : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
                 }`}
               >
-                <Icon size={16} />
+                <Grid size={12} /> All
               </button>
-            ))}
+              <button
+                onClick={() => setScreenshotFilter('favorites')}
+                className={`px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
+                  screenshotFilter === 'favorites'
+                    ? 'bg-[var(--hytale-bg-input)] text-rose-400 shadow-sm'
+                    : 'text-[var(--hytale-text-dim)] hover:text-[var(--hytale-text-primary)]'
+                }`}
+              >
+                <Heart size={12} fill={screenshotFilter === 'favorites' ? 'currentColor' : 'none'} /> Favorites
+              </button>
+            </div>
+
+            {/* Filters toggle button */}
+            <button
+              onClick={() => setShowGalleryFilters(!showGalleryFilters)}
+              className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
+                showGalleryFilters || screenshotPresetFilter !== 'all' || screenshotSort !== 'date-desc'
+                  ? 'bg-[var(--hytale-accent-blue)]/10 text-[var(--hytale-accent-blue)]'
+                  : 'bg-[var(--hytale-bg-elevated)] text-[var(--hytale-text-muted)] hover:text-[var(--hytale-text-primary)]'
+              }`}
+            >
+              <Filter size={14} />
+              Filters
+              {(screenshotPresetFilter !== 'all' || screenshotSort !== 'date-desc') && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--hytale-accent-blue)]"></span>
+              )}
+              <ChevronDown size={14} className={`transition-transform ${showGalleryFilters ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Layout Toggle */}
+            <div className="flex gap-1 bg-[var(--hytale-bg-elevated)] rounded-lg p-1">
+              {([
+                { value: 'grid', icon: LayoutGrid },
+                { value: 'gallery', icon: GalleryHorizontal },
+              ] as const).map(({ value, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => saveSettings({ ...settings, gallery_layout: value })}
+                  className={`p-2 rounded-md transition-all ${
+                    (settings.gallery_layout || 'grid') === value
+                      ? 'bg-[var(--hytale-bg-input)] text-[var(--hytale-accent-blue)] shadow-sm'
+                      : 'text-[var(--hytale-text-dimmer)] hover:text-[var(--hytale-text-primary)]'
+                  }`}
+                >
+                  <Icon size={16} />
+                </button>
+              ))}
+            </div>
+
+            {/* Open folder button */}
+            <button
+              onClick={handleOpenScreenshotsFolder}
+              className="px-3 py-2 bg-[var(--hytale-bg-elevated)] rounded-lg text-[var(--hytale-text-muted)] text-sm flex items-center gap-2 hover:bg-[var(--hytale-bg-hover)] hover:text-[var(--hytale-text-primary)] transition-colors"
+            >
+              <FolderOpenIcon size={14} /> Open Folder
+            </button>
           </div>
 
-          {/* Open folder button */}
-          <button
-            onClick={handleOpenScreenshotsFolder}
-            className="px-3 py-2 bg-[var(--hytale-bg-elevated)] border border-[var(--hytale-border-card)] rounded-md text-[var(--hytale-text-muted)] text-sm flex items-center gap-2 hover:bg-[var(--hytale-bg-hover)] hover:text-[var(--hytale-text-primary)] transition-colors"
-          >
-            <FolderOpenIcon size={14} /> Open Folder
-          </button>
+          {/* Collapsible filter panel */}
+          {showGalleryFilters && (
+            <div className="bg-[var(--hytale-bg-elevated)] rounded-lg p-4 flex flex-wrap gap-4 items-center animate-fade-in">
+              {/* Preset filter */}
+              {screenshotPresets.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--hytale-text-dim)] text-xs">Preset:</span>
+                  <div className="relative">
+                    <select
+                      value={screenshotPresetFilter}
+                      onChange={(e) => setScreenshotPresetFilter(e.target.value)}
+                      className="appearance-none bg-[var(--hytale-bg-input)] rounded-lg pl-3 pr-8 py-1.5 text-[var(--hytale-text-primary)] text-sm focus:outline-none transition-colors cursor-pointer"
+                    >
+                      <option value="all">All ({screenshotPresets.length})</option>
+                      {screenshotPresets.map(preset => (
+                        <option key={preset} value={preset}>{preset}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
+              {/* Sort */}
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--hytale-text-dim)] text-xs">Sort:</span>
+                <div className="relative">
+                  <select
+                    value={screenshotSort}
+                    onChange={(e) => setScreenshotSort(e.target.value as typeof screenshotSort)}
+                    className="appearance-none bg-[var(--hytale-bg-input)] rounded-lg pl-3 pr-8 py-1.5 text-[var(--hytale-text-primary)] text-sm focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="date-desc">Newest First</option>
+                    <option value="date-asc">Oldest First</option>
+                    <option value="name-asc">Name A-Z</option>
+                    <option value="name-desc">Name Z-A</option>
+                    <option value="size-desc">Largest First</option>
+                    <option value="size-asc">Smallest First</option>
+                    <option value="preset-asc">Preset A-Z</option>
+                    <option value="preset-desc">Preset Z-A</option>
+                    <option value="favorites">Favorites First</option>
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--hytale-text-dimmer)] pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Reset filters button */}
+              {(screenshotPresetFilter !== 'all' || screenshotSort !== 'date-desc') && (
+                <button
+                  onClick={() => {
+                    setScreenshotPresetFilter('all');
+                    setScreenshotSort('date-desc');
+                  }}
+                  className="text-[var(--hytale-text-dim)] text-xs hover:text-[var(--hytale-text-primary)] transition-colors flex items-center gap-1"
+                >
+                  <X size={12} /> Reset
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Screenshots Grid */}
@@ -2509,6 +3429,51 @@ const App: React.FC = () => {
                 <span className="font-hytale text-sm font-bold uppercase tracking-wide">Settings</span>
                 {currentPage === 'settings' && <ChevronRight size={14} className="ml-auto" />}
               </button>
+
+              {/* Moderation button - only visible to moderators */}
+              {isModerator && (
+                <button
+                  id="nav-moderation"
+                  onClick={() => setCurrentPage('moderation')}
+                  className={`w-full p-3.5 rounded-md flex items-center gap-3 transition-all duration-200 group border-l-2 ${
+                    currentPage === 'moderation'
+                      ? 'bg-[var(--hytale-bg-nav)] text-[var(--hytale-accent-blue)] border-[var(--hytale-accent-blue)] shadow-[0_0_10px_var(--hytale-glow-blue)]'
+                      : 'text-[var(--hytale-text-secondary)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-tertiary)] border-transparent hover:border-[var(--hytale-border-light)]'
+                  }`}
+                >
+                  <Shield size={18} className={`transition-transform duration-200 ${currentPage === 'moderation' ? '' : 'group-hover:scale-110'}`} />
+                  <span className="font-hytale text-sm font-bold uppercase tracking-wide">Moderation</span>
+                  {currentPage === 'moderation' && <ChevronRight size={14} className="ml-auto" />}
+                </button>
+              )}
+
+              {/* Profile button - shows avatar if logged in */}
+              <button
+                id="nav-profile"
+                onClick={() => {
+                  setViewingProfileId(currentUserDiscordId);
+                  setCurrentPage('profile');
+                }}
+                className={`w-full p-3.5 rounded-md flex items-center gap-3 transition-all duration-200 group border-l-2 ${
+                  currentPage === 'profile'
+                    ? 'bg-[var(--hytale-bg-nav)] text-[var(--hytale-accent-blue)] border-[var(--hytale-accent-blue)] shadow-[0_0_10px_var(--hytale-glow-blue)]'
+                    : 'text-[var(--hytale-text-secondary)] hover:text-[var(--hytale-text-primary)] hover:bg-[var(--hytale-bg-tertiary)] border-transparent hover:border-[var(--hytale-border-light)]'
+                }`}
+              >
+                {currentUserInfo ? (
+                  <img
+                    src={currentUserInfo.avatar_url}
+                    alt=""
+                    className="w-5 h-5 rounded-full"
+                  />
+                ) : (
+                  <User size={18} className={`transition-transform duration-200 ${currentPage === 'profile' ? '' : 'group-hover:scale-110'}`} />
+                )}
+                <span className="font-hytale text-sm font-bold uppercase tracking-wide">
+                  {currentUserInfo ? currentUserInfo.display_name : 'Profile'}
+                </span>
+                {currentPage === 'profile' && <ChevronRight size={14} className="ml-auto" />}
+              </button>
             </nav>
 
             {/* Sidebar Footer */}
@@ -2569,6 +3534,25 @@ const App: React.FC = () => {
             {currentPage === 'presets' && renderPresetsPage()}
             {currentPage === 'gallery' && renderGalleryPage()}
             {currentPage === 'settings' && renderSettingsPage()}
+            {currentPage === 'moderation' && isModerator && currentUserDiscordId && (
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-6xl mx-auto p-6">
+                  <ModerationPanel discordId={currentUserDiscordId} isVisible={true} />
+                </div>
+              </div>
+            )}
+            {currentPage === 'profile' && (
+              <div className="flex-1 overflow-y-auto">
+                <UserProfile
+                  currentUser={currentUserInfo}
+                  viewingUserId={viewingProfileId}
+                  isOwnProfile={viewingProfileId === currentUserDiscordId}
+                  onLogin={handleDiscordLogin}
+                  onLogout={handleDiscordLogout}
+                  onRefreshCommunity={loadCommunityPresets}
+                />
+              </div>
+            )}
           </main>
         </div>
       )}
@@ -2746,8 +3730,37 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Install Button */}
-                  <div className="pt-4 border-t-2 border-[var(--hytale-border-primary)]">
+                  {/* Rating Section - Read-only display */}
+                  <div className="space-y-3">
+                    <h3 className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm uppercase tracking-wide">Rating</h3>
+
+                    {/* Community rating */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-[var(--hytale-text-dim)]">Community:</span>
+                      <StarRating
+                        rating={null}
+                        averageRating={presetRatings[selectedPreset.id]?.average_rating}
+                        totalRatings={presetRatings[selectedPreset.id]?.total_ratings ?? 0}
+                        size={18}
+                      />
+                    </div>
+
+                    {/* User's rating display */}
+                    {myRatings[selectedPreset.id] && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-[var(--hytale-text-dim)]">Your rating:</span>
+                        <StarRating
+                          rating={myRatings[selectedPreset.id]}
+                          size={16}
+                          showCount={false}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-4 border-t-2 border-[var(--hytale-border-primary)] space-y-3">
+                    {/* Install Button */}
                     <button
                       onClick={() => {
                         handleDownloadPreset(selectedPreset);
@@ -2766,9 +3779,400 @@ const App: React.FC = () => {
                         Configure game path in Settings first
                       </p>
                     )}
+
+                    {/* Rate Preset Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRatingModal(selectedPreset);
+                      }}
+                      className="w-full py-2.5 bg-[var(--hytale-bg-elevated)] hover:bg-[var(--hytale-bg-hover)] border border-[var(--hytale-border-card)] rounded-md flex items-center justify-center gap-2 text-[var(--hytale-text-secondary)] hover:text-[var(--hytale-text-primary)] transition-colors"
+                    >
+                      <Star size={16} className="text-[var(--hytale-warning-amber)]" />
+                      <span className="text-sm font-medium">
+                        {myRatings[selectedPreset.id] ? 'Update Rating' : 'Rate Preset'}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Community Preset Detail Modal */}
+      {selectedCommunityPreset && (
+        <div
+          className="fixed inset-0 bg-[var(--hytale-overlay)] z-50 flex items-center justify-center p-8 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setSelectedCommunityPreset(null)}
+        >
+          <div
+            className="bg-[var(--hytale-bg-primary)] border-2 border-[var(--hytale-border-primary)] rounded-md max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col relative animate-expand-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b-2 border-[var(--hytale-border-primary)]">
+              <div>
+                <h2 className="font-hytale font-bold text-xl text-[var(--hytale-text-primary)] uppercase tracking-wide">{selectedCommunityPreset.name}</h2>
+                <p className="text-[var(--hytale-text-muted)] text-sm font-body">
+                  by{' '}
+                  <button
+                    onClick={() => {
+                      setViewingProfileId(selectedCommunityPreset.author_discord_id);
+                      setCurrentPage('profile');
+                      setSelectedCommunityPreset(null);
+                    }}
+                    className="text-[var(--hytale-accent-blue)] hover:underline"
+                  >
+                    {selectedCommunityPreset.author_name}
+                  </button>
+                  {' '}• <span className="font-mono">v{selectedCommunityPreset.version}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCommunityPreset(null)}
+                className="text-[var(--hytale-text-muted)] hover:text-[var(--hytale-text-primary)] transition-colors p-2 hover:bg-[var(--hytale-border-primary)] rounded-md"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                {/* Left side - Images */}
+                <div className="col-span-3">
+                  {/* Check for comparison images (before/after pairs) */}
+                  {(() => {
+                    const beforeImage = selectedCommunityPreset.images.find(img => img.image_type === 'before');
+                    const afterImage = selectedCommunityPreset.images.find(img => img.image_type === 'after');
+                    const hasComparison = beforeImage && afterImage;
+
+                    return (
+                      <>
+                        {/* View Toggle - Only show if comparison images are available */}
+                        {hasComparison && (
+                          <div className="flex gap-2 mb-3">
+                            <button
+                              onClick={() => setCommunityShowComparison(false)}
+                              className={`flex-1 py-2 px-3 rounded-md font-hytale text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${
+                                !communityShowComparison
+                                  ? 'bg-[var(--hytale-accent-blue)] text-white'
+                                  : 'bg-[var(--hytale-bg-tertiary)] text-[var(--hytale-text-muted)] hover:text-[var(--hytale-text-primary)]'
+                              }`}
+                            >
+                              <Image size={14} /> Gallery
+                            </button>
+                            <button
+                              onClick={() => setCommunityShowComparison(true)}
+                              className={`flex-1 py-2 px-3 rounded-md font-hytale text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${
+                                communityShowComparison
+                                  ? 'bg-[var(--hytale-accent-blue)] text-white'
+                                  : 'bg-[var(--hytale-bg-tertiary)] text-[var(--hytale-text-muted)] hover:text-[var(--hytale-text-primary)]'
+                              }`}
+                            >
+                              <SplitSquareHorizontal size={14} /> Compare
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Comparison Slider View */}
+                        {communityShowComparison && hasComparison ? (
+                          <div className="aspect-video bg-[var(--hytale-bg-tertiary)] rounded-md overflow-hidden mb-3 border-2 border-[var(--hytale-border-primary)]">
+                            <ImageComparisonSlider
+                              beforeImage={beforeImage.full_image_url}
+                              afterImage={afterImage.full_image_url}
+                              beforeLabel="Before"
+                              afterLabel="After"
+                              className="w-full h-full"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            {/* Main Image */}
+                            <div className="aspect-video bg-[var(--hytale-bg-tertiary)] rounded-md overflow-hidden mb-3 border-2 border-[var(--hytale-border-primary)]">
+                              {(() => {
+                                const allImages = selectedCommunityPreset.images.filter(img => img.image_type === 'screenshot' || img.image_type === 'after');
+                                const currentImage = allImages[communityImageIndex]?.full_image_url || selectedCommunityPreset.thumbnail_url || selectedCommunityPreset.images[0]?.full_image_url;
+                                return currentImage ? (
+                                  <img src={currentImage} alt={selectedCommunityPreset.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Sparkles size={48} className="text-[var(--hytale-text-dimmer)]" />
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Thumbnail Strip */}
+                            {selectedCommunityPreset.images.length > 1 && (
+                              <div className="flex gap-2 overflow-x-auto pb-2">
+                                {selectedCommunityPreset.images.filter(img => img.image_type === 'screenshot' || img.image_type === 'after').map((img, idx) => (
+                                  <button
+                                    key={img.id}
+                                    onClick={() => setCommunityImageIndex(idx)}
+                                    className={`flex-shrink-0 w-20 h-14 rounded-md overflow-hidden border-2 transition-colors ${
+                                      communityImageIndex === idx
+                                        ? 'border-[var(--hytale-accent-blue)]'
+                                        : 'border-[var(--hytale-border-card)] hover:border-[var(--hytale-border-light)]'
+                                    }`}
+                                  >
+                                    <img src={img.full_image_url} alt="" className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Right side - Info */}
+                <div className="col-span-2 space-y-4">
+                  {/* Category Badge */}
+                  <div className="flex items-center gap-2">
+                    <span className="badge-hyfx primary capitalize">
+                      {selectedCommunityPreset.category}
+                    </span>
+                    <span className="text-xs text-[var(--hytale-text-dimmer)] flex items-center gap-1">
+                      <Download size={12} /> {selectedCommunityPreset.download_count} downloads
+                    </span>
+                  </div>
+
+                  {/* Rating */}
+                  <div className="flex items-center gap-3">
+                    <StarRating
+                      rating={myRatings[selectedCommunityPreset.id] ?? null}
+                      averageRating={presetRatings[selectedCommunityPreset.id]?.average_rating}
+                      totalRatings={presetRatings[selectedCommunityPreset.id]?.total_ratings ?? 0}
+                      size={16}
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <h3 className="font-hytale font-bold text-[var(--hytale-text-primary)] text-sm uppercase mb-2 tracking-wide">Description</h3>
+                    <p className="text-[var(--hytale-text-secondary)] text-sm leading-relaxed font-body">
+                      {selectedCommunityPreset.long_description || selectedCommunityPreset.description}
+                    </p>
+                  </div>
+
+                  {/* Created date */}
+                  <div className="text-xs text-[var(--hytale-text-dimmer)]">
+                    Submitted on {new Date(selectedCommunityPreset.created_at).toLocaleDateString()}
+                  </div>
+
+                  {/* Download Button */}
+                  <div className="pt-4 border-t border-[var(--hytale-border-card)] space-y-3">
+                    <button
+                      onClick={async () => {
+                        if (!installPath) {
+                          setError("Please configure Hytale installation path first.");
+                          return;
+                        }
+                        try {
+                          // Generate filename from preset name (sanitize for filesystem)
+                          const sanitizedName = selectedCommunityPreset.name
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '-')
+                            .replace(/^-|-$/g, '');
+                          const destinationPath = `${installPath}\\reshade-presets\\${sanitizedName}.ini`;
+
+                          // Download the preset file
+                          await invoke('download_community_preset', {
+                            presetId: selectedCommunityPreset.id,
+                            presetUrl: selectedCommunityPreset.preset_file_url,
+                            destinationPath: destinationPath,
+                            presetName: selectedCommunityPreset.name,
+                            presetVersion: selectedCommunityPreset.version
+                          });
+                          // Refresh installed presets
+                          await loadInstalledPresets();
+                          setSelectedCommunityPreset(null);
+                        } catch (e) {
+                          console.error('Failed to download community preset:', e);
+                          setError(`Failed to install preset: ${e}`);
+                        }
+                      }}
+                      disabled={!installPath}
+                      className="w-full btn-hyfx-primary py-3 font-hytale font-bold text-[var(--hytale-text-primary)] rounded-md flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <Download size={18} />
+                      Install Preset
+                    </button>
+                    {!installPath && (
+                      <p className="text-[var(--hytale-warning)] text-xs text-center mt-2 font-body">
+                        Please set your Hytale installation path first
+                      </p>
+                    )}
+
+                    {/* Rate Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCommunityRatingModal(selectedCommunityPreset);
+                      }}
+                      className="w-full py-2.5 bg-[var(--hytale-bg-elevated)] hover:bg-[var(--hytale-bg-hover)] border border-[var(--hytale-border-card)] rounded-md flex items-center justify-center gap-2 text-[var(--hytale-text-secondary)] hover:text-[var(--hytale-text-primary)] transition-colors"
+                    >
+                      <Star size={16} />
+                      Rate This Preset
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rating Modal - supports both official and community presets */}
+      {activeRatingPreset && (
+        <div
+          className="fixed inset-0 bg-[var(--hytale-overlay)] z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn"
+          onClick={closeRatingModal}
+        >
+          <div
+            className="bg-[var(--hytale-bg-card)] border-2 border-[var(--hytale-border-primary)] rounded-lg w-full max-w-md overflow-hidden shadow-2xl animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with thumbnail */}
+            <div className="relative h-32 bg-[var(--hytale-bg-input)] overflow-hidden">
+              {(() => {
+                const thumbnailUrl = ratingModalPreset?.thumbnail || ratingModalCommunityPreset?.thumbnail_url;
+                return thumbnailUrl ? (
+                  <CachedImage
+                    src={thumbnailUrl}
+                    alt={activeRatingPreset.name}
+                    className="w-full h-full object-cover opacity-60"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Palette size={40} className="text-[var(--hytale-border-hover)]" />
+                  </div>
+                );
+              })()}
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--hytale-bg-card)] to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4">
+                <h2 className="font-hytale font-bold text-lg text-[var(--hytale-text-primary)] truncate">
+                  {activeRatingPreset.name}
+                </h2>
+                <p className="text-sm text-[var(--hytale-text-dim)]">
+                  by {ratingModalPreset?.author || ratingModalCommunityPreset?.author_name}
+                </p>
+              </div>
+              <button
+                onClick={closeRatingModal}
+                className="absolute top-3 right-3 p-1.5 bg-black/40 rounded-full hover:bg-black/60 transition-colors"
+              >
+                <X size={16} className="text-white" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {ratingSuccess ? (
+                /* Success State */
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--hytale-success)]/20 flex items-center justify-center">
+                    <CheckCircle size={32} className="text-[var(--hytale-success)]" />
+                  </div>
+                  <h3 className="font-hytale font-bold text-lg text-[var(--hytale-text-primary)] mb-2">
+                    Thank You!
+                  </h3>
+                  <p className="text-sm text-[var(--hytale-text-dim)]">
+                    Your rating has been submitted successfully.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Community Rating */}
+                  <div className="text-center">
+                    <p className="text-xs text-[var(--hytale-text-dimmer)] uppercase tracking-wide mb-2">
+                      Community Rating
+                    </p>
+                    <div className="flex items-center justify-center gap-2">
+                      <StarRating
+                        rating={null}
+                        averageRating={presetRatings[activeRatingPreset.id]?.average_rating}
+                        totalRatings={presetRatings[activeRatingPreset.id]?.total_ratings ?? 0}
+                        size={22}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-[var(--hytale-border-card)]" />
+
+                  {/* Your Rating */}
+                  <div className="text-center">
+                    <p className="text-xs text-[var(--hytale-text-dimmer)] uppercase tracking-wide mb-3">
+                      {myRatings[activeRatingPreset.id] ? 'Update Your Rating' : 'Rate This Preset'}
+                    </p>
+
+                    {/* Interactive Stars */}
+                    <div className="flex items-center justify-center gap-1 mb-4">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setPendingRating(star)}
+                          className="p-1 transition-transform hover:scale-110 focus:outline-none"
+                          disabled={ratingSubmitting}
+                        >
+                          <Star
+                            size={36}
+                            className={`transition-colors ${
+                              star <= pendingRating
+                                ? 'fill-[var(--hytale-warning-amber)] text-[var(--hytale-warning-amber)]'
+                                : 'text-[var(--hytale-border-card)] hover:text-[var(--hytale-warning-amber)]/50'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Rating Label */}
+                    <p className="text-sm text-[var(--hytale-text-secondary)] h-5">
+                      {pendingRating === 0 && 'Click a star to rate'}
+                      {pendingRating === 1 && 'Poor'}
+                      {pendingRating === 2 && 'Fair'}
+                      {pendingRating === 3 && 'Good'}
+                      {pendingRating === 4 && 'Very Good'}
+                      {pendingRating === 5 && 'Excellent!'}
+                    </p>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={closeRatingModal}
+                      className="flex-1 py-2.5 bg-[var(--hytale-bg-elevated)] hover:bg-[var(--hytale-bg-hover)] border border-[var(--hytale-border-card)] rounded-md text-[var(--hytale-text-secondary)] text-sm font-medium transition-colors"
+                      disabled={ratingSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmitRating}
+                      disabled={pendingRating === 0 || ratingSubmitting}
+                      className="flex-1 py-2.5 btn-hyfx-primary rounded-md text-[var(--hytale-text-primary)] text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {ratingSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <Star size={16} />
+                          Submit Rating
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3123,6 +4527,64 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Community Preset Modal (Moderator) */}
+      {deleteCommunityModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--hytale-bg-primary)] border-2 border-[var(--hytale-border-primary)] rounded-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-hytale text-lg text-red-400">Delete Community Preset</h3>
+              <button
+                onClick={() => setDeleteCommunityModalOpen(false)}
+                className="text-[var(--hytale-text-muted)] hover:text-[var(--hytale-text-primary)]"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-[var(--hytale-text-muted)] mb-4">
+              <strong className="text-red-400">Warning:</strong> This will permanently delete the preset and all associated images. This action cannot be undone.
+            </p>
+            <textarea
+              value={deleteCommunityReason}
+              onChange={e => setDeleteCommunityReason(e.target.value)}
+              placeholder="Reason for deletion (optional)..."
+              className="w-full px-3 py-2 bg-[var(--hytale-bg-input)] border border-[var(--hytale-border-card)] rounded-md text-[var(--hytale-text-primary)] resize-none h-24"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setDeleteCommunityModalOpen(false)}
+                className="px-4 py-2 text-[var(--hytale-text-muted)] hover:text-[var(--hytale-text-primary)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCommunityPreset}
+                disabled={deletingCommunityPreset}
+                className="px-4 py-2 bg-red-600 text-white rounded-md font-medium hover:bg-red-700 flex items-center gap-2 disabled:opacity-50"
+              >
+                {deletingCommunityPreset ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submission Wizard Modal */}
+      <SubmissionWizard
+        isOpen={showSubmissionWizard}
+        onClose={() => setShowSubmissionWizard(false)}
+        installedPresets={installedPresets.filter(p => p.is_local).map(p => ({
+          ...p,
+          file_path: p.source_path || '',
+          is_local_import: p.is_local
+        }))}
+        hytalePath={installPath || ''}
+        onSubmitSuccess={() => {
+          setShowSubmissionWizard(false);
+          // Refresh community presets when implemented
+        }}
+      />
     </div>
   );
 };

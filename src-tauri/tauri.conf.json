@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "OrbisFX Launcher",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "identifier": "com.orbisfx.launcher",
   "build": {
     "frontendDist": "../dist",
@@ -23,10 +23,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https: data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://raw.githubusercontent.com https://cdn.discordapp.com https://*.supabase.co data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.github.com https://*.supabase.co https://discord.com",
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },

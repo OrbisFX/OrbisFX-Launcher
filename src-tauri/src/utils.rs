@@ -1,11 +1,68 @@
 //! Utility functions for the OrbisFX Launcher
 //!
-//! Contains helper functions for file operations, config paths, etc.
+//! Contains helper functions for file operations, config paths, security validation, etc.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::models::InstalledPreset;
+
+// ============== Path Security Validation ==============
+
+/// Validate that a path is within an allowed base directory (prevents path traversal attacks)
+/// Returns the canonicalized path if valid, or an error if the path escapes the base directory
+pub fn validate_path_within_dir(path: &Path, allowed_base: &Path) -> Result<PathBuf, String> {
+    // Canonicalize both paths to resolve any ".." or symlinks
+    let canonical_path = path.canonicalize()
+        .map_err(|e| format!("Invalid path '{}': {}", path.display(), e))?;
+
+    let canonical_base = allowed_base.canonicalize()
+        .map_err(|e| format!("Invalid base directory '{}': {}", allowed_base.display(), e))?;
+
+    // Check if the path starts with the base directory
+    if !canonical_path.starts_with(&canonical_base) {
+        return Err(format!(
+            "Path traversal detected: '{}' is outside allowed directory '{}'",
+            canonical_path.display(),
+            canonical_base.display()
+        ));
+    }
+
+    Ok(canonical_path)
+}
+
+/// Validate that a path is within the Hytale screenshots directory
+pub fn validate_screenshot_path(screenshot_path: &str, hytale_dir: &str) -> Result<PathBuf, String> {
+    let path = Path::new(screenshot_path);
+    let screenshots_dir = Path::new(hytale_dir).join("screenshots");
+    validate_path_within_dir(path, &screenshots_dir)
+}
+
+/// Validate that a path is within the downloads directory (for update files)
+pub fn validate_downloads_path(file_path: &str) -> Result<PathBuf, String> {
+    let path = Path::new(file_path);
+    let downloads_dir = dirs::download_dir()
+        .ok_or_else(|| "Could not determine downloads directory".to_string())?;
+    validate_path_within_dir(path, &downloads_dir)
+}
+
+/// Validate that a file has an allowed extension
+pub fn validate_file_extension(path: &Path, allowed_extensions: &[&str]) -> Result<(), String> {
+    let extension = path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+
+    if !allowed_extensions.iter().any(|&ext| ext.to_lowercase() == extension) {
+        return Err(format!(
+            "Invalid file extension '.{}'. Allowed: {}",
+            extension,
+            allowed_extensions.join(", ")
+        ));
+    }
+
+    Ok(())
+}
 
 // ============== Config Paths ==============
 

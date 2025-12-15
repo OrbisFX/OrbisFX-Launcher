@@ -1,5 +1,5 @@
-/* Hytale Website Fonts - Lexend for headings, Nunito Sans for body */
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
+/* OrbisFX Website Fonts - Cinzel for headings (matching orbisfx.co), Nunito Sans for body */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Lexend:wght@400;500;600;700;800;900&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Open+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -11,55 +11,56 @@
    ============================================ */
 
 /* ============================================
-   THEME SYSTEM
+   THEME SYSTEM - OrbisFX Website Style
+   Matching orbisfx.co dark cinematic aesthetic
    Supports: dark (default), light, oled
    ============================================ */
 
-/* Dark Theme (Default - Hytale Style) */
+/* Dark Theme (Default - OrbisFX Website Style) */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Primary Backgrounds */
-  --hytale-bg-primary: #15243A;
-  --hytale-bg-secondary: #182037;
-  --hytale-bg-tertiary: #161F2A;
-  --hytale-bg-nav: #203658;
-  --hytale-bg-footer: #10161e;
-  --hytale-bg-dark: #121B25;
-  --hytale-bg-card: #1a2535;
-  --hytale-bg-input: #131b26;
-  --hytale-bg-elevated: #243040;
-  --hytale-bg-hover: #2a3a4d;
+  /* Primary Backgrounds - Dark cinematic (orbisfx.co) */
+  --hytale-bg-primary: #0e0e10;
+  --hytale-bg-secondary: #0a0a0c;
+  --hytale-bg-tertiary: #080809;
+  --hytale-bg-nav: #141417;
+  --hytale-bg-footer: #050506;
+  --hytale-bg-dark: #0a0a0c;
+  --hytale-bg-card: #141417;
+  --hytale-bg-input: #0a0a0c;
+  --hytale-bg-elevated: #1a1a1d;
+  --hytale-bg-hover: #222226;
 
-  /* Borders */
-  --hytale-border-primary: #434134;
-  --hytale-border-secondary: #443e30;
-  --hytale-border-light: #47516b;
-  --hytale-border-nav: #182438;
-  --hytale-border-card: #2a3a4d;
-  --hytale-border-hover: #3a4a5d;
+  /* Borders - Subtle gray (orbisfx.co) */
+  --hytale-border-primary: #2d2d30;
+  --hytale-border-secondary: #3a3a3e;
+  --hytale-border-light: #444448;
+  --hytale-border-nav: #2d2d30;
+  --hytale-border-card: #2d2d30;
+  --hytale-border-hover: #444448;
 
-  /* Text Colors */
-  --hytale-text-primary: #ffffff;
-  --hytale-text-secondary: #b7cedd;
-  --hytale-text-muted: #a5b9c6;
-  --hytale-text-dim: #8b9db0;
-  --hytale-text-dimmer: #6b7a8a;
-  --hytale-text-faint: #4a5a6a;
+  /* Text Colors - Warm cream (orbisfx.co) */
+  --hytale-text-primary: #eeeae3;
+  --hytale-text-secondary: #c5c1ba;
+  --hytale-text-muted: #9ca3af;
+  --hytale-text-dim: #6b7280;
+  --hytale-text-dimmer: #4b5563;
+  --hytale-text-faint: #374151;
 
-  /* Accent Colors */
-  --hytale-accent-blue: #598ac3;
-  --hytale-accent-blue-hover: #4a7ab3;
-  --hytale-accent-link: #A5C0E8;
-  --hytale-accent-hover: #7db9e5;
+  /* Accent Colors - Cyan (orbisfx.co) */
+  --hytale-accent-blue: #0092cc;
+  --hytale-accent-blue-hover: #00a8e8;
+  --hytale-accent-link: #00b0f4;
+  --hytale-accent-hover: #00c4ff;
 
-  /* Button Colors */
-  --hytale-btn-primary-start: #465da9;
-  --hytale-btn-primary-end: #4578aa;
-  --hytale-btn-primary-border: #598ac3;
-  --hytale-btn-secondary-bg: #243040;
-  --hytale-btn-secondary-border: #47516b;
+  /* Button Colors - Cyan gradient (orbisfx.co) */
+  --hytale-btn-primary-start: #00b0f4;
+  --hytale-btn-primary-end: #0080b0;
+  --hytale-btn-primary-border: #005070;
+  --hytale-btn-secondary-bg: #3a3a3a;
+  --hytale-btn-secondary-border: #2a2a2a;
   --hytale-btn-destructive: #c3194c;
   --hytale-btn-destructive-border: #df4179;
 
@@ -69,59 +70,76 @@
   --hytale-warning: #fcd34d;
   --hytale-warning-amber: #eab308;
   --hytale-error: #ef4444;
-  --hytale-info: #3b82f6;
+  --hytale-info: #0092cc;
   --hytale-favorite: #f43f5e;
 
   /* Overlay/Shadow */
-  --hytale-overlay: rgba(0, 0, 0, 0.9);
-  --hytale-shadow: rgba(0, 0, 0, 0.5);
-  --hytale-glow-blue: rgba(89, 138, 195, 0.3);
+  --hytale-overlay: rgba(0, 0, 0, 0.95);
+  --hytale-shadow: rgba(0, 0, 0, 0.7);
+  --hytale-glow-blue: rgba(0, 146, 204, 0.3);
   --hytale-glow-success: rgba(74, 222, 128, 0.5);
 
   /* Scrollbar */
-  --scrollbar-track: #121B25;
-  --scrollbar-thumb: #47516b;
-  --scrollbar-thumb-hover: #598ac3;
+  --scrollbar-track: #0a0a0c;
+  --scrollbar-thumb: #2d2d30;
+  --scrollbar-thumb-hover: #0092cc;
+
+  /* OrbisFX Website Colors (direct access) */
+  --orbisfx-bg-dark: #0e0e10;
+  --orbisfx-bg-darker: #0a0a0c;
+  --orbisfx-bg-card: #141417;
+  --orbisfx-border: #2d2d30;
+  --orbisfx-text: #eeeae3;
+  --orbisfx-cyan: #0092cc;
+  --orbisfx-cyan-light: #00b0f4;
+  --orbisfx-cyan-dark: #0080b0;
+  --orbisfx-cyan-border: #005070;
+  --orbisfx-cyan-shadow: #003650;
+  --orbisfx-gold: #fcd34d;
+  --orbisfx-gold-dark: #d97706;
 }
 
-/* OLED Theme (True Black) */
+/* OLED Theme (True Black - OrbisFX style with pure blacks) */
 [data-theme="oled"] {
   color-scheme: dark;
 
   /* Primary Backgrounds - True blacks */
   --hytale-bg-primary: #000000;
-  --hytale-bg-secondary: #0a0a0a;
-  --hytale-bg-tertiary: #050505;
-  --hytale-bg-nav: #0d1520;
+  --hytale-bg-secondary: #050506;
+  --hytale-bg-tertiary: #030304;
+  --hytale-bg-nav: #0a0a0c;
   --hytale-bg-footer: #000000;
   --hytale-bg-dark: #000000;
-  --hytale-bg-card: #0a0f15;
-  --hytale-bg-input: #050508;
-  --hytale-bg-elevated: #121820;
-  --hytale-bg-hover: #1a2530;
+  --hytale-bg-card: #0a0a0c;
+  --hytale-bg-input: #050506;
+  --hytale-bg-elevated: #0e0e10;
+  --hytale-bg-hover: #141417;
 
-  /* Borders - Darker to match */
-  --hytale-border-primary: #1a1a1a;
-  --hytale-border-secondary: #252525;
-  --hytale-border-light: #333344;
-  --hytale-border-nav: #0a1020;
-  --hytale-border-card: #1a2535;
-  --hytale-border-hover: #2a3545;
+  /* Borders - Subtle gray */
+  --hytale-border-primary: #1a1a1c;
+  --hytale-border-secondary: #222226;
+  --hytale-border-light: #2d2d30;
+  --hytale-border-nav: #1a1a1c;
+  --hytale-border-card: #1a1a1c;
+  --hytale-border-hover: #2d2d30;
 
-  /* Text Colors - Slightly dimmer to reduce contrast */
-  --hytale-text-primary: #f0f0f0;
-  --hytale-text-secondary: #a5b9c6;
-  --hytale-text-muted: #8b9db0;
-  --hytale-text-dim: #6b7a8a;
-  --hytale-text-dimmer: #555566;
-  --hytale-text-faint: #3a3a4a;
+  /* Text Colors - Warm cream (orbisfx.co) */
+  --hytale-text-primary: #eeeae3;
+  --hytale-text-secondary: #c5c1ba;
+  --hytale-text-muted: #9ca3af;
+  --hytale-text-dim: #6b7280;
+  --hytale-text-dimmer: #4b5563;
+  --hytale-text-faint: #374151;
 
-  /* Accent Colors */
-  --hytale-accent-blue: #598ac3;
-  --hytale-accent-blue-hover: #4a7ab3;
+  /* Accent Colors - Cyan (orbisfx.co) */
+  --hytale-accent-blue: #0092cc;
+  --hytale-accent-blue-hover: #00a8e8;
 
-  /* Button Colors */
-  --hytale-btn-secondary-bg: #121820;
+  /* Button Colors - Cyan gradient (orbisfx.co) */
+  --hytale-btn-primary-start: #00b0f4;
+  --hytale-btn-primary-end: #0080b0;
+  --hytale-btn-primary-border: #005070;
+  --hytale-btn-secondary-bg: #1a1a1d;
 
   /* Status Colors */
   --hytale-success: #22c55e;
@@ -132,15 +150,29 @@
   --hytale-favorite: #f43f5e;
 
   /* Overlay/Shadow */
-  --hytale-overlay: rgba(0, 0, 0, 0.95);
-  --hytale-shadow: rgba(0, 0, 0, 0.7);
-  --hytale-glow-blue: rgba(89, 138, 195, 0.2);
+  --hytale-overlay: rgba(0, 0, 0, 0.98);
+  --hytale-shadow: rgba(0, 0, 0, 0.9);
+  --hytale-glow-blue: rgba(0, 146, 204, 0.25);
   --hytale-glow-success: rgba(74, 222, 128, 0.4);
 
   /* Scrollbar */
   --scrollbar-track: #000000;
-  --scrollbar-thumb: #333344;
-  --scrollbar-thumb-hover: #598ac3;
+  --scrollbar-thumb: #2d2d30;
+  --scrollbar-thumb-hover: #0092cc;
+
+  /* OrbisFX Website Colors (OLED variants) */
+  --orbisfx-bg-dark: #000000;
+  --orbisfx-bg-darker: #000000;
+  --orbisfx-bg-card: #0a0a0c;
+  --orbisfx-border: #1a1a1c;
+  --orbisfx-text: #eeeae3;
+  --orbisfx-cyan: #0092cc;
+  --orbisfx-cyan-light: #00b0f4;
+  --orbisfx-cyan-dark: #0080b0;
+  --orbisfx-cyan-border: #005070;
+  --orbisfx-cyan-shadow: #002030;
+  --orbisfx-gold: #fcd34d;
+  --orbisfx-gold-dark: #d97706;
 }
 
 /* Light Theme */
@@ -209,18 +241,32 @@
   --scrollbar-track: #e8eef4;
   --scrollbar-thumb: #b8c5d3;
   --scrollbar-thumb-hover: #4a7ab3;
+
+  /* OrbisFX Website Colors (Light mode variants) */
+  --orbisfx-bg-dark: #f0f4f8;
+  --orbisfx-bg-darker: #e8eef4;
+  --orbisfx-bg-card: #ffffff;
+  --orbisfx-border: #c5d0dc;
+  --orbisfx-text: #1a2535;
+  --orbisfx-cyan: #0080b0;
+  --orbisfx-cyan-light: #0092cc;
+  --orbisfx-cyan-dark: #006090;
+  --orbisfx-cyan-border: #004060;
+  --orbisfx-cyan-shadow: #b8c5d3;
+  --orbisfx-gold: #b77a00;
+  --orbisfx-gold-dark: #8a5a00;
 }
 
-/* Global styles matching Hytale website */
+/* Global styles matching orbisfx.co website */
 html {
   overflow: hidden;
 }
 
 body {
   background-color: var(--hytale-bg-primary);
-  background-image: linear-gradient(to bottom, var(--hytale-bg-primary), var(--hytale-bg-dark));
+  background-image: none;
   color: var(--hytale-text-secondary);
-  font-family: 'Nunito Sans', sans-serif;
+  font-family: 'Nunito Sans', 'Open Sans', sans-serif;
   font-size: 1em;
   font-weight: 400;
   line-height: 1.5;
@@ -348,7 +394,8 @@ body {
 .p5 { width: 2px; height: 2px; animation: float-3 4s infinite ease-in-out; animation-delay: 1.2s; }
 
 /* ============================================
-   HYTALE BUTTON STYLES (matching official website)
+   ORBISFX BUTTON STYLES (matching orbisfx.co website)
+   3D pressed effect with cyan gradient
    ============================================ */
 
 /* Base button styles shared across all button types */
@@ -361,11 +408,11 @@ body {
   color: var(--hytale-text-primary);
   box-sizing: border-box;
   cursor: pointer;
-  border-radius: 4px;
-  padding: 8px 16px;
-  font-family: 'Nunito Sans', sans-serif;
+  border-radius: 2px;
+  padding: 10px 20px;
+  font-family: 'Cinzel', serif;
   font-weight: 700;
-  transition: all 0.15s ease-in-out;
+  transition: all 0.1s ease-out;
 }
 
 .btn-hyfx-primary:disabled,
@@ -373,113 +420,234 @@ body {
 .btn-hyfx-tertiary:disabled,
 .btn-hyfx-danger:disabled {
   cursor: not-allowed;
-  background: #39424d !important;
-  border-color: #464e58 !important;
   opacity: 0.5;
+  filter: grayscale(0.5);
+  box-shadow: none !important;
+  transform: translateY(3px) !important;
 }
 
-/* Primary Button - Blue gradient with rune pattern (Hytale style) */
+/* Primary Button - Cyan gradient with 3D pressed effect (orbisfx.co) */
 .btn-hyfx-primary {
-  --border-color: var(--hytale-btn-primary-border);
-  border: 2px solid var(--border-color);
-  background-color: transparent;
-  background-image: linear-gradient(90deg, var(--hytale-btn-primary-start), var(--hytale-btn-primary-end));
-  background-size: 100%;
+  background: linear-gradient(to bottom, var(--hytale-btn-primary-start), var(--hytale-btn-primary-end));
+  border: 2px solid var(--hytale-btn-primary-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 5px 0 #003650;
+  color: white;
 }
 
 .btn-hyfx-primary:hover:not(:disabled) {
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background-color: #20578e;
-  background-image: none;
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 6px 0 #003650;
 }
 
 .btn-hyfx-primary:active:not(:disabled) {
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background-color: #2a74bd;
-  background-image: none;
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 #003650;
 }
 
 .btn-hyfx-primary:focus-visible {
-  outline: 2px solid #7ba9d9;
+  outline: 2px solid var(--orbisfx-gold);
   outline-offset: 2px;
 }
 
-/* Secondary Button - Dark blue background (Hytale style) */
+/* Secondary Button - Dark gray with 3D pressed effect (orbisfx.co) */
 .btn-hyfx-secondary {
-  --border-color: #576c95;
-  background: var(--hytale-btn-secondary-bg);
-  border: 2px solid var(--hytale-btn-secondary-border);
+  background: linear-gradient(to bottom, #5c5c5c, #3a3a3a);
+  border: 2px solid #2a2a2a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 5px 0 #151515;
+  color: var(--hytale-text-primary);
 }
 
 .btn-hyfx-secondary:hover:not(:disabled) {
-  border-color: var(--border-color);
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background: #18283c;
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 0 #151515;
 }
 
 .btn-hyfx-secondary:active:not(:disabled) {
-  border-color: var(--border-color);
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background: #253f60;
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #151515;
 }
 
 .btn-hyfx-secondary:focus-visible {
-  outline: 2px solid #7ba9d9;
+  outline: 2px solid var(--orbisfx-cyan);
   outline-offset: 2px;
 }
 
-/* Tertiary Button - Outline style (Hytale style) */
+/* Tertiary Button - Outline style (orbisfx.co) */
 .btn-hyfx-tertiary {
-  --border-color: var(--hytale-btn-secondary-border);
-  border: 2px solid var(--border-color);
-  box-shadow: none;
   background: transparent;
+  border: 2px solid var(--hytale-border-light);
+  box-shadow: none;
   color: var(--hytale-text-muted);
 }
 
 .btn-hyfx-tertiary:hover:not(:disabled) {
-  box-shadow: 0 0 0 2px var(--border-color) inset;
+  border-color: var(--orbisfx-cyan);
   color: var(--hytale-text-primary);
+  box-shadow: 0 0 10px rgba(0, 146, 204, 0.2);
 }
 
 .btn-hyfx-tertiary:active:not(:disabled) {
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background: rgba(78, 89, 119, 0.3);
+  background: rgba(0, 146, 204, 0.1);
 }
 
 .btn-hyfx-tertiary:focus-visible {
-  outline: 2px solid #7ba9d9;
+  outline: 2px solid var(--orbisfx-cyan);
   outline-offset: 2px;
 }
 
-/* Danger/Destructive Button - Red (Hytale style) */
+/* Danger/Destructive Button - Red with 3D effect (orbisfx.co style) */
 .btn-hyfx-danger {
-  --border-color: #ff2668;
-  box-shadow: none;
-  background: var(--hytale-btn-destructive);
-  border: 2px solid var(--hytale-btn-destructive-border);
+  background: linear-gradient(to bottom, #ef4444, #b91c1c);
+  border: 2px solid #7f1d1d;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 5px 0 #450a0a;
+  color: white;
 }
 
 .btn-hyfx-danger:hover:not(:disabled) {
-  border-color: var(--border-color);
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background: #a80b3a;
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 6px 0 #450a0a;
 }
 
 .btn-hyfx-danger:active:not(:disabled) {
-  border-color: var(--border-color);
-  box-shadow: 0 0 0 2px var(--border-color) inset;
-  background: #d5134d;
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 0 #450a0a;
 }
 
 .btn-hyfx-danger:focus-visible {
-  outline: 2px solid #ff7fa8;
+  outline: 2px solid #fca5a5;
   outline-offset: 2px;
 }
 
-/* Font utility classes - Hytale typography */
+/* ============================================
+   ORBISFX WEBSITE BUTTON STYLES (from orbisfx.co)
+   These match the distinctive 3D pressed button style
+   ============================================ */
+
+/* OrbisFX Primary Button - Cyan gradient with 3D pressed effect */
+.btn-orbisfx-primary {
+  background: linear-gradient(to bottom, var(--orbisfx-cyan-light), var(--orbisfx-cyan-dark));
+  border: 2px solid var(--orbisfx-cyan-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 5px 0 var(--orbisfx-cyan-shadow);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s ease-out;
+}
+
+.btn-orbisfx-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 6px 0 var(--orbisfx-cyan-shadow);
+}
+
+.btn-orbisfx-primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 var(--orbisfx-cyan-shadow);
+}
+
+.btn-orbisfx-primary:disabled {
+  opacity: 0.5;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: translateY(3px);
+}
+
+.btn-orbisfx-primary:focus-visible {
+  outline: 2px solid var(--orbisfx-gold);
+  outline-offset: 2px;
+}
+
+/* OrbisFX Secondary Button - Dark gray with 3D pressed effect */
+.btn-orbisfx-secondary {
+  background: linear-gradient(to bottom, #5c5c5c, #3a3a3a);
+  border: 2px solid #2a2a2a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 5px 0 #151515;
+  color: var(--orbisfx-text);
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s ease-out;
+}
+
+.btn-orbisfx-secondary:hover:not(:disabled) {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 0 #151515;
+}
+
+.btn-orbisfx-secondary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #151515;
+}
+
+.btn-orbisfx-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: translateY(3px);
+}
+
+.btn-orbisfx-secondary:focus-visible {
+  outline: 2px solid var(--orbisfx-cyan);
+  outline-offset: 2px;
+}
+
+/* OrbisFX Tertiary Button - Outline style matching website */
+.btn-orbisfx-tertiary {
+  background: transparent;
+  border: 2px solid var(--orbisfx-border);
+  box-shadow: none;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.btn-orbisfx-tertiary:hover:not(:disabled) {
+  border-color: var(--orbisfx-cyan);
+  color: white;
+  box-shadow: 0 0 10px rgba(0, 146, 204, 0.2);
+}
+
+.btn-orbisfx-tertiary:active:not(:disabled) {
+  background: rgba(0, 146, 204, 0.1);
+}
+
+.btn-orbisfx-tertiary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-orbisfx-tertiary:focus-visible {
+  outline: 2px solid var(--orbisfx-cyan);
+  outline-offset: 2px;
+}
+
+/* Font utility classes - OrbisFX/Hytale typography */
 .font-hytale {
-  font-family: 'Lexend', sans-serif;
+  font-family: 'Cinzel', serif;  /* Matches orbisfx.co website */
+}
+
+.font-lexend {
+  font-family: 'Lexend', sans-serif;  /* Alternative heading font */
 }
 
 .font-body {
@@ -590,6 +758,124 @@ a:focus-visible {
 .card-hover:hover {
   border-color: rgba(89, 138, 195, 0.3);
   box-shadow: 0 0 20px rgba(89, 138, 195, 0.1);
+}
+
+/* ============================================
+   ENHANCED HOVER ANIMATION UTILITIES
+   ============================================ */
+
+/* Smooth lift effect for cards */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.4),
+              0 4px 8px -4px rgba(0, 0, 0, 0.2);
+}
+
+/* Subtle scale effect for interactive elements */
+.hover-scale {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Glow effect for accent elements */
+.hover-glow {
+  transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(0, 146, 204, 0.3),
+              0 0 40px rgba(0, 146, 204, 0.1);
+  border-color: var(--hytale-accent-blue);
+}
+
+/* Image zoom effect for thumbnails */
+.hover-zoom-img {
+  overflow: hidden;
+}
+
+.hover-zoom-img img {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-zoom-img:hover img {
+  transform: scale(1.08);
+}
+
+/* Button press effect */
+.hover-press {
+  transition: transform 0.1s ease-out, background-color 0.15s ease-in-out;
+}
+
+.hover-press:hover {
+  transform: translateY(-1px);
+}
+
+.hover-press:active {
+  transform: translateY(1px);
+}
+
+/* Icon button hover effect */
+.hover-icon {
+  transition: color 0.15s ease-in-out,
+              background-color 0.15s ease-in-out,
+              transform 0.15s ease-out;
+}
+
+.hover-icon:hover {
+  transform: scale(1.1);
+}
+
+/* Smooth opacity fade */
+.hover-fade {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.hover-fade:hover {
+  opacity: 0.8;
+}
+
+/* Border highlight effect */
+.hover-border {
+  transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.hover-border:hover {
+  border-color: var(--hytale-border-hover);
+}
+
+/* Combined card effect (lift + shadow + border) */
+.hover-card {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease-in-out,
+              background-color 0.2s ease-in-out;
+}
+
+.hover-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.3),
+              0 4px 8px -2px rgba(0, 0, 0, 0.2);
+  border-color: var(--hytale-border-hover);
+}
+
+/* Pill/tag hover effect */
+.hover-pill {
+  transition: background-color 0.15s ease-in-out,
+              color 0.15s ease-in-out,
+              transform 0.15s ease-out;
+}
+
+.hover-pill:hover {
+  transform: translateY(-1px);
 }
 
 /* Glass effect - Hytale style */
@@ -1004,4 +1290,74 @@ a:hover {
 .progress-bar-gradient {
   background: linear-gradient(to right, var(--hytale-btn-primary-start), var(--hytale-accent-blue));
   box-shadow: 0 0 10px var(--hytale-glow-blue);
+}
+
+/* ============================================
+   SKELETON LOADER ANIMATIONS
+   ============================================ */
+
+/* Shimmer animation for skeleton loaders */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--hytale-bg-elevated) 0%,
+    var(--hytale-bg-hover) 50%,
+    var(--hytale-bg-elevated) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Toast slide-in animation */
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: toast-slide-in 0.3s ease-out forwards;
+}
+
+/* Focus trap for modals */
+.focus-trap {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+/* Image lazy loading placeholder */
+.img-loading {
+  background: var(--hytale-bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.img-loading::after {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--hytale-border-card);
+  border-top-color: var(--hytale-accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

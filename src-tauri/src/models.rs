@@ -124,6 +124,19 @@ pub struct PresetsResponse {
     pub presets: Vec<Preset>,
 }
 
+/// Source type for installed presets
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum PresetSource {
+    /// Official preset from GitHub repository
+    Official,
+    /// Community preset from Supabase
+    Community,
+    /// Locally imported preset
+    #[default]
+    Local,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InstalledPreset {
     pub id: String,
@@ -138,6 +151,12 @@ pub struct InstalledPreset {
     pub is_local: bool,
     #[serde(default)]
     pub source_path: Option<String>,
+    /// Source type for determining update source
+    #[serde(default)]
+    pub source: PresetSource,
+    /// Original source ID for community presets (to fetch updates)
+    #[serde(default)]
+    pub source_id: Option<String>,
 }
 
 // ============== GShade Hotkeys ==============

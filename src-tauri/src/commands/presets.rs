@@ -2,14 +2,33 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use once_cell::sync::Lazy;
 
-use crate::models::{GitHubFileEntry, InstalledPreset, Preset, PresetIndex, PresetManifest, PresetsResponse};
+use crate::models::{GitHubFileEntry, InstalledPreset, Preset, PresetIndex, PresetManifest, PresetSource, PresetsResponse};
 use crate::utils::{chrono_lite_now, load_installed_presets_list, save_installed_presets_list, update_gshade_preset_path};
 
 // GitHub repository URLs
 const GITHUB_PRESET_BASE_URL: &str = "https://raw.githubusercontent.com/OrbisFX/presets/main";
 const GITHUB_PRESET_INDEX_URL: &str = "https://raw.githubusercontent.com/OrbisFX/presets/main/index.json";
 const GITHUB_API_CONTENTS_URL: &str = "https://api.github.com/repos/OrbisFX/presets/contents";
+
+// Cache TTL: 5 minutes
+const CACHE_TTL_SECS: u64 = 300;
+
+/// In-memory cache for presets response
+struct PresetsCache {
+    data: Option<serde_json::Value>,
+    last_fetch: Option<Instant>,
+}
+
+static PRESETS_CACHE: Lazy<Mutex<PresetsCache>> = Lazy::new(|| {
+    Mutex::new(PresetsCache {
+        data: None,
+        last_fetch: None,
+    })
+});
 
 /// Result of scanning a preset folder for files
 struct PresetFolderInfo {
@@ -103,8 +122,8 @@ async fn fetch_preset_folder_info(client: &reqwest::Client, preset_id: &str) -> 
     }
 }
 
-#[tauri::command]
-pub async fn fetch_presets() -> serde_json::Value {
+/// Internal function to fetch presets from GitHub (no caching)
+async fn fetch_presets_from_github() -> serde_json::Value {
     let client = reqwest::Client::new();
 
     let index_response = match reqwest::get(GITHUB_PRESET_INDEX_URL).await {
@@ -192,6 +211,59 @@ pub async fn fetch_presets() -> serde_json::Value {
 }
 
 #[tauri::command]
+pub async fn fetch_presets() -> serde_json::Value {
+    // Check cache first
+    {
+        let cache = PRESETS_CACHE.lock().unwrap();
+        if let (Some(data), Some(last_fetch)) = (&cache.data, cache.last_fetch) {
+            if last_fetch.elapsed() < Duration::from_secs(CACHE_TTL_SECS) {
+                log::info!("Returning cached presets (age: {:?})", last_fetch.elapsed());
+                return data.clone();
+            }
+        }
+    }
+
+    log::info!("Cache miss or expired, fetching presets from GitHub");
+    let result = fetch_presets_from_github().await;
+
+    // Update cache if successful
+    if result.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let mut cache = PRESETS_CACHE.lock().unwrap();
+        cache.data = Some(result.clone());
+        cache.last_fetch = Some(Instant::now());
+        log::info!("Presets cached successfully");
+    }
+
+    result
+}
+
+/// Force refresh presets cache and fetch fresh data from GitHub
+#[tauri::command]
+pub async fn refresh_presets_cache() -> serde_json::Value {
+    log::info!("Force refreshing presets cache");
+
+    // Clear the cache
+    {
+        let mut cache = PRESETS_CACHE.lock().unwrap();
+        cache.data = None;
+        cache.last_fetch = None;
+    }
+
+    // Fetch fresh data
+    let result = fetch_presets_from_github().await;
+
+    // Update cache if successful
+    if result.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let mut cache = PRESETS_CACHE.lock().unwrap();
+        cache.data = Some(result.clone());
+        cache.last_fetch = Some(Instant::now());
+        log::info!("Presets cache refreshed successfully");
+    }
+
+    result
+}
+
+#[tauri::command]
 pub async fn download_preset(preset: Preset, hytale_dir: String) -> serde_json::Value {
     let response = match reqwest::get(&preset.download_url).await {
         Ok(r) => r,
@@ -231,6 +303,8 @@ pub async fn download_preset(preset: Preset, hytale_dir: String) -> serde_json::
         is_favorite: false,
         is_local: false,
         source_path: None,
+        source: PresetSource::Official,
+        source_id: Some(preset.id.clone()),
     };
 
     let mut installed_presets = load_installed_presets_list();
@@ -348,6 +422,8 @@ pub fn import_local_preset(source_path: String, hytale_dir: String, preset_name:
         is_favorite: false,
         is_local: true,
         source_path: Some(source_path),
+        source: PresetSource::Local,
+        source_id: None,
     };
 
     let mut installed_presets = load_installed_presets_list();
@@ -419,6 +495,62 @@ pub fn toggle_favorite(preset_id: String) -> serde_json::Value {
         serde_json::json!({
             "success": true,
             "is_favorite": new_state
+        })
+    } else {
+        serde_json::json!({
+            "success": false,
+            "error": "Preset not found"
+        })
+    }
+}
+
+/// Update the version of a preset (used for local presets)
+#[tauri::command]
+pub fn update_preset_version(preset_id: String, new_version: String) -> serde_json::Value {
+    let mut presets = load_installed_presets_list();
+    let mut found = false;
+
+    for p in &mut presets {
+        if p.id == preset_id {
+            p.version = new_version.clone();
+            found = true;
+            break;
+        }
+    }
+
+    if found {
+        save_installed_presets_list(&presets);
+        serde_json::json!({
+            "success": true,
+            "version": new_version
+        })
+    } else {
+        serde_json::json!({
+            "success": false,
+            "error": "Preset not found"
+        })
+    }
+}
+
+/// Update the name of a preset
+#[tauri::command]
+pub fn update_preset_name(preset_id: String, new_name: String) -> serde_json::Value {
+    let mut presets = load_installed_presets_list();
+    let mut found = false;
+
+    for p in &mut presets {
+        if p.id == preset_id {
+            p.name = new_name.clone();
+            found = true;
+            break;
+        }
+    }
+
+    if found {
+        save_installed_presets_list(&presets);
+        serde_json::json!({
+            "success": true,
+            "name": new_name
         })
     } else {
         serde_json::json!({
